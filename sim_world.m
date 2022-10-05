@@ -36,9 +36,8 @@ function sim_world()
         road.T/2*sin(2*pi/road.T*x).*cos(2*pi/road.T/3*x);
     
     % motion equation
-    
-    x_t = @(v,t,x_1)...     % (m) ego x position
-        v.*t - road.x(end).*floor(x_1/road.x(end));
+        x_t = @(v,t,x_1)...     % (m) ego x position
+            v.*t - road.x(end).*floor(x_1/road.x(end));
     
     ego = [];               % ego properties
     ego.v = 5;              % (m/s) ego speed
@@ -74,14 +73,8 @@ function sim_world()
     
     % moving objects
     mov_n_objects = 2;      % number of moving objects
-    mov = [];               % moving object properties
-    mov.v = -ego.v*1.5*rand(mov_n_objects,1); % (m/s) moving object speed
-    mov.t0 = ...            % random starting position
-        rand(mov_n_objects,1)*diff(road.x([1 end]))./mov.v;
-    mov.x = @(t,x_1)...     % (m) moving object x position;
-        x_t(mov.v,t+mov.t0,x_1); 
-    mov.y = @(x) road.y(x); % (m) moving object y position
-    mov.x_1 = zeros(mov_n_objects,1); % (m) moving object last x
+    mov = init_mov_objects(mov_n_objects, 1,x_t,ego,road); % moving obj
+    onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road); % oncoming obj
     
     % ************ initialize simulation animation variables *************
     t = 0;                                      % (s) time
@@ -100,8 +93,11 @@ function sim_world()
     ego_x = ego.x(t,ego.x_1);   % ego x position
     ego_y = ego.y(ego_x);       % ego y position
     
-    mov_x = mov.x(t,mov.x_1);   % ego x position
-    mov_y = mov.y(mov_x);       % ego y position
+    mov_x = mov.x(t,mov.x_1);   % moving obect x position
+    mov_y = mov.y(mov_x);       % moving object y position
+    
+    onc_x = onc.x(t,onc.x_1);   % oncoming object x position
+    onc_y = onc.y(onc_x);       % oncoming object y position
     
     % static axes plots
     road.m.static = plot(interface.main_figure.ax_static,...
@@ -111,7 +107,9 @@ function sim_world()
     stand.m.static = plot(interface.main_figure.ax_static,...
         stand.y, stand(1).x,'og','linewidth',2);
     mov.m.static =  plot(interface.main_figure.ax_static,...
-        mov_y,mov_x,'ob','linewidth',2);
+        mov_y,mov_x,'o','color',[1 0.5 0],'linewidth',2);
+    onc.m.static =  plot(interface.main_figure.ax_static,...
+        onc_y,onc_x,'oc','linewidth',2);
     
     % dynamic axes transformations
     % transform road coordinates
@@ -123,6 +121,9 @@ function sim_world()
     % transform moving object corrdinates
     [mov_x,mov_y] = dynamic_transform_coordinates(...
             mov_x,mov_y,ego_x,ego_y, theta);
+    % transform oncoming object corrdinates
+    [onc_x,onc_y] = dynamic_transform_coordinates(...
+            onc_x,onc_y,ego_x,ego_y, theta);
     
     % dynamic axes plots
     road.m.dynamic = plot(interface.main_figure.ax_dynamic,...
@@ -132,7 +133,9 @@ function sim_world()
     stand.m.dynamic = plot(interface.main_figure.ax_dynamic,...
         s_y,s_x,'og','linewidth',2);
     mov.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
-        mov_x,mov_y,'ob','linewidth',2);
+        mov_x,mov_y,'o','color',[1 0.5 0],'linewidth',2);
+    onc.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
+        onc_x,onc_y,'oc','linewidth',2);
     
     % draw sensor FoV
     for ii = 1 : ego.sensor.n
@@ -150,6 +153,8 @@ function sim_world()
         ego_y =  ego.y(ego_x);
         mov_x =  mov.x(t,mov.x_1);
         mov_y =  mov.y(mov_x);
+        onc_x =  onc.x(t,onc.x_1);
+        onc_y =  onc.y(onc_x);
         road_x = road.x + ego.x_1-road_tail;
         road_y = road.y(road_x);
         
@@ -158,8 +163,10 @@ function sim_world()
         % update static axes
         set(ego.m.static,'xData',ego_y,'yData',ego_x)
         ego.x_1 = ego.x(t,0);
-        set(mov.m(1).static,'xData',mov_y,'yData',mov_x)
+        set(mov.m.static,'xData',mov_y,'yData',mov_x)
         mov.x_1 = mov.x(t,0);
+        set(onc.m.static,'xData',onc_y,'yData',onc_x)
+        onc.x_1 = onc.x(t,0);
         
         % ************************* dynamic axes *************************
         
@@ -173,14 +180,20 @@ function sim_world()
             stand.x+s_shift,stand.y,ego_x,ego_y, theta);
         % transform moving object corrdinates
         m_shift = road.x(end)*((ego_x-mov_x) > road.x(round(end/2))) +... 
-                -road.x(end)*((mov_x-ego_x) > road.x(round(end/2)));
+                 -road.x(end)*((mov_x-ego_x) > road.x(round(end/2)));
         [mov_x,mov_y] = dynamic_transform_coordinates(...
             mov_x+m_shift,mov_y,ego_x,ego_y, theta);
+        % transform oncoming object corrdinates
+        o_shift = road.x(end)*((ego_x-onc_x) > road.x(round(end/2))) +... 
+                 -road.x(end)*((onc_x-ego_x) > road.x(round(end/2)));
+        [onc_x,onc_y] = dynamic_transform_coordinates(...
+            onc_x+o_shift,onc_y,ego_x,ego_y, theta);
         
         % update dynamic axes
         set(road.m.dynamic,'xData',road_y,'yData',road_x)
         set(stand.m.dynamic,'xData',s_y,'ydata',s_x);
         set(mov.m.dynamic,'xData',mov_y,'yData',mov_x)
+        set(onc.m.dynamic,'xData',onc_y,'yData',onc_x)
         
         % increment time
         t = t + dt;
@@ -190,6 +203,18 @@ function sim_world()
     delete(interface.main_figure.f)
     
     % *********************** function definitions ***********************
+    
+    function obj = init_mov_objects(n, direction, x_t, ego, road)        
+        % moving objects
+        obj = [];               % moving object properties
+        obj.v = direction*ego.v*1.5*rand(n,1); % (m/s) moving object speed
+        obj.t0 = ...            % random starting position
+            rand(n,1)*diff(road.x([1 end]))./obj.v;
+        obj.x = @(t,x_1)...     % (m) moving object x position;
+            x_t(obj.v,t+obj.t0,x_1); 
+        obj.y = @(x) road.y(x); % (m) moving object y position
+        obj.x_1 = zeros(n,1); % (m) moving object last x
+    end
     
     function [x,y,theta] = dynamic_transform_coordinates(...
             x,y,x_ref,y_ref,theta)
