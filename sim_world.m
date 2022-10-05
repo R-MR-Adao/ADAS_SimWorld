@@ -1,30 +1,7 @@
 function sim_world()
-    close all
     
-    interface = [];
-    interface.colors.background      = [1 1 1]*0.25;
-    interface.colors.plot_background = [1 1 1]*0.4;
-    interface.colors.plot_lines      = [1 1 1]*1;
-    interface.main_figure.f = figure(...
-        'color',interface.colors.background,...
-        'position',[1080 30 800 900],... %[450 80 1080 720]
-        'CloseRequestFcn',@f_CloseRequestFcn);
-    interface.main_figure.ax_static = axes(...
-        'position',[0.05 0.05 0.3 0.9],...
-        'color',interface.colors.plot_background,...
-        'xcolor',interface.colors.plot_lines,...
-        'ycolor',interface.colors.plot_lines);
-    axis image
-    hold on
-    grid on
-    interface.main_figure.ax_dynamic = axes(...
-        'position',[0.45 0.05 0.5 0.9],...
-        'color',interface.colors.plot_background,...
-        'xcolor',interface.colors.plot_lines,...
-        'ycolor',interface.colors.plot_lines);
-    axis image
-    hold on
-    grid on
+    % initialize interface
+    interface = init_interface();
     
     % ******************* initialize object properties *******************
     dt = 0.05;              % (s) time resolution
@@ -47,78 +24,22 @@ function sim_world()
     mov = init_mov_objects(mov_n_objects, 1,x_t,ego,road); % moving obj
     onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road); % oncoming obj
     
-    % ************ initialize simulation animation variables *************
-    t = 0;                                      % (s) time
-    set(interface.main_figure.ax_static,... % dynamic axes limits
-        'xlim', [-1 1]*road.T/2,...
-        'ylim', [road.x(1) road.x(end)]);
-    set(interface.main_figure.ax_dynamic,...% dynamic axes limits
-        'xlim', [-1 1]*(ego.sensor.fov.range + 10),...
-        'ylim', [-1 1]*(ego.sensor.fov.range + 10));
-    road_tail = road.x(round(end/2));       % (m) road tail behind ego
-    
-    % initialze common variables
-    road_x = road.x;            % road x array
-    road_y = road.y(road_x);    % road y array
-    
-    ego_x = ego.x(t,ego.x_1);   % ego x position
-    ego_y = ego.y(ego_x);       % ego y position
-    
-    mov_x = mov.x(t,mov.x_1);   % moving obect x position
-    mov_y = mov.y(mov_x);       % moving object y position
-    
-    onc_x = onc.x(t,onc.x_1);   % oncoming object x position
-    onc_y = onc.y(onc_x);       % oncoming object y position
-    
-    % static axes plots
-    road.m.static = plot(interface.main_figure.ax_static,...
-        road_y, road_x,'w','linewidth',2);
-    ego.m.static =  plot(interface.main_figure.ax_static,...
-        ego_y,ego_x,'or','linewidth',2);
-    stand.m.static = plot(interface.main_figure.ax_static,...
-        stand.y, stand(1).x,'og','linewidth',2);
-    mov.m.static =  plot(interface.main_figure.ax_static,...
-        mov_y,mov_x,'o','color',[1 0.5 0],'linewidth',2);
-    onc.m.static =  plot(interface.main_figure.ax_static,...
-        onc_y,onc_x,'oc','linewidth',2);
-    
-    % dynamic axes transformations
-    % transform road coordinates
-    [road_x,road_y,theta] = dynamic_transform_coordinates(...
-        road_x,road_y,ego_x,ego_y);
-    % transform standing object coordinates
-    [s_x,s_y] = dynamic_transform_coordinates(...
-            stand.x,stand.y,ego_x,ego_y, theta);
-    % transform moving object corrdinates
-    [mov_x,mov_y] = dynamic_transform_coordinates(...
-            mov_x,mov_y,ego_x,ego_y, theta);
-    % transform oncoming object corrdinates
-    [onc_x,onc_y] = dynamic_transform_coordinates(...
-            onc_x,onc_y,ego_x,ego_y, theta);
-    
-    % dynamic axes plots
-    road.m.dynamic = plot(interface.main_figure.ax_dynamic,...
-        road_y,road_x,'w','linewidth',2);
-    ego.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
-        0,0,'or','linewidth',2);
-    stand.m.dynamic = plot(interface.main_figure.ax_dynamic,...
-        s_y,s_x,'og','linewidth',2);
-    mov.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
-        mov_x,mov_y,'o','color',[1 0.5 0],'linewidth',2);
-    onc.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
-        onc_x,onc_y,'oc','linewidth',2);
-    
-    % draw sensor FoV
-    for ii = 1 : ego.sensor.n
-        ego.sensor.m(ii) = patch(...
-            ego.sensor.fov.draw.circ{ii}(:,1),...
-            ego.sensor.fov.draw.circ{ii}(:,2),...
-            'w','FaceAlpha',.3);
-    end
-    % ************************* simulation start *************************
-    
+    % initialize simulation animation variables
+    [interface, road, ego, stand, mov, onc, road_tail] = ...
+            init_plots(interface, road, ego, stand, mov, onc);
+    %initialize simulation time
+    t = 0; % (s) time
     while strcmp(get(interface.main_figure.f,'visible'),'on')
-        
+        [t, dt, road, ego, stand, mov, onc, road_tail] = ...
+            simulation_run(t, dt, road, ego, stand, mov, onc, road_tail);
+    end
+    
+    output_sim_data(interface,road,ego,stand,mov,onc) 
+    
+    % *********************** function definitions ***********************
+    
+    function [t, dt, road, ego, stand, mov, onc, road_tail] =...
+            simulation_run(t, dt, road, ego, stand, mov, onc, road_tail)
         % update common variables
         ego_x =  ego.x(t,ego.x_1);
         ego_y =  ego.y(ego_x);
@@ -147,7 +68,7 @@ function sim_world()
         % shift standing objects for smoother rendering
         s_shift = road.x(end)*((ego_x-stand.x) > road.x(round(end/2))) +... 
                  -road.x(end)*((stand.x-ego_x) > road.x(round(end/2)));
-        [s_x,s_y] = dynamic_transform_coordinates(...
+        [stand_x,stand_y] = dynamic_transform_coordinates(...
             stand.x+s_shift,stand.y,ego_x,ego_y, theta);
         % transform moving object corrdinates
         m_shift = road.x(end)*((ego_x-mov_x) > road.x(round(end/2))) +... 
@@ -161,19 +82,15 @@ function sim_world()
             onc_x+o_shift,onc_y,ego_x,ego_y, theta);
         
         % update dynamic axes
-        set(road.m.dynamic, 'xData',road_y,'yData',road_x)
-        set(stand.m.dynamic,'xData',s_y,   'ydata',s_x);
-        set(mov.m.dynamic,  'xData',mov_y, 'yData',mov_x)
-        set(onc.m.dynamic,  'xData',onc_y, 'yData',onc_x)
+        set(road.m.dynamic, 'xData',road_y, 'yData',road_x)
+        set(stand.m.dynamic,'xData',stand_y,'ydata',stand_x);
+        set(mov.m.dynamic,  'xData',mov_y,  'yData',mov_x)
+        set(onc.m.dynamic,  'xData',onc_y,  'yData',onc_x)
         
         % increment time
         t = t + dt;
         pause(dt)
     end
-    
-    delete(interface.main_figure.f)
-    
-    % *********************** function definitions ***********************
     
     function obj = init_road()
         obj = [];              % road properties
@@ -258,7 +175,115 @@ function sim_world()
         
     end
 
-    % ************************ interface callbacks ************************
+    function [interface, road, ego, stand, mov, onc, road_tail] =...
+            init_plots(interface, road, ego, stand, mov, onc)
+        set(interface.main_figure.ax_static,... % dynamic axes limits
+            'xlim', [-1 1]*road.T/2,...
+            'ylim', [road.x(1) road.x(end)]);
+        set(interface.main_figure.ax_dynamic,...% dynamic axes limits
+            'xlim', [-1 1]*(ego.sensor.fov.range + 10),...
+            'ylim', [-1 1]*(ego.sensor.fov.range + 10));
+        road_tail = road.x(round(end/2));       % (m) road tail behind ego
+
+        % initialze common variables
+        r_x = road.x;           % road x array
+        r_y = road.y(r_x);      % road y array
+
+        e_x = ego.x(0,ego.x_1); % ego x position
+        e_y = ego.y(e_x);       % ego y position
+
+        m_x = mov.x(0,mov.x_1); % moving obect x position
+        m_y = mov.y(m_x);       % moving object y position
+
+        o_x = onc.x(0,onc.x_1); % oncoming object x position
+        o_y = onc.y(o_x);       % oncoming object y position
+
+        % static axes plots
+        road.m.static = plot(interface.main_figure.ax_static,...
+            r_y, r_x,'w','linewidth',2);
+        ego.m.static =  plot(interface.main_figure.ax_static,...
+            e_y,e_x,'or','linewidth',2);
+        stand.m.static = plot(interface.main_figure.ax_static,...
+            stand.y, stand(1).x,'og','linewidth',2);
+        mov.m.static =  plot(interface.main_figure.ax_static,...
+            m_y,m_x,'o','color',[1 0.5 0],'linewidth',2);
+        onc.m.static =  plot(interface.main_figure.ax_static,...
+            o_y,o_x,'oc','linewidth',2);
+
+        % dynamic axes transformations
+        % transform road coordinates
+        [r_x,r_y,th] = dynamic_transform_coordinates(...
+            r_x,r_y,e_x,e_y);
+        % transform standing object coordinates
+        [s_x,s_y] = dynamic_transform_coordinates(...
+                stand.x,stand.y,e_x,e_y, th);
+        % transform moving object corrdinates
+        [m_x,m_y] = dynamic_transform_coordinates(...
+                m_x,m_y,e_x,e_y, th);
+        % transform oncoming object corrdinates
+        [o_x,o_y] = dynamic_transform_coordinates(...
+                o_x,o_y,e_x,e_y, th);
+
+        % dynamic axes plots
+        road.m.dynamic = plot(interface.main_figure.ax_dynamic,...
+            r_y,r_x,'w','linewidth',2);
+        ego.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
+            0,0,'or','linewidth',2);
+        stand.m.dynamic = plot(interface.main_figure.ax_dynamic,...
+            s_y,s_x,'og','linewidth',2);
+        mov.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
+            m_x,m_y,'o','color',[1 0.5 0],'linewidth',2);
+        onc.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
+            o_x,o_y,'oc','linewidth',2);
+
+        % draw sensor FoV
+        for ii = 1 : ego.sensor.n
+            ego.sensor.m(ii) = patch(...
+                ego.sensor.fov.draw.circ{ii}(:,1),...
+                ego.sensor.fov.draw.circ{ii}(:,2),...
+                'w','FaceAlpha',.3);
+        end
+    end
+
+    % ***************************** interface *****************************
+    
+    function interface = init_interface()
+        interface = [];
+        interface.colors.background      = [1 1 1]*0.25;
+        interface.colors.plot_background = [1 1 1]*0.4;
+        interface.colors.plot_lines      = [1 1 1]*1;
+        interface.main_figure.f = figure(...
+            'color',interface.colors.background,...
+            'position',[1080 30 800 900],... %[450 80 1080 720]
+            'CloseRequestFcn',@f_CloseRequestFcn);
+        interface.main_figure.ax_static = axes(...
+            'position',[0.05 0.05 0.3 0.9],...
+            'color',interface.colors.plot_background,...
+            'xcolor',interface.colors.plot_lines,...
+            'ycolor',interface.colors.plot_lines);
+        axis image
+        hold on
+        grid on
+        interface.main_figure.ax_dynamic = axes(...
+            'position',[0.45 0.05 0.5 0.9],...
+            'color',interface.colors.plot_background,...
+            'xcolor',interface.colors.plot_lines,...
+            'ycolor',interface.colors.plot_lines);
+        axis image
+        hold on
+        grid on
+    end
+    
+    function output_sim_data(interface,road,ego,stand,mov,onc)
+        sim_world_data.road = road;
+        sim_world_data.ego = ego;
+        sim_world_data.stand = stand;
+        sim_world_data.mov = mov;
+        sim_world_data.onc = onc;
+        sim_world_data.interface = interface;
+        assignin('base','sim_world_data',sim_world_data)
+    end
+
     function f_CloseRequestFcn(source,eventData)
         set(source,'visible','off')
     end
