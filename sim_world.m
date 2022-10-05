@@ -32,9 +32,10 @@ function sim_world()
     while strcmp(get(interface.main_figure.f,'visible'),'on')
         [t, dt, road, ego, stand, mov, onc, road_tail] = ...
             simulation_run(t, dt, road, ego, stand, mov, onc, road_tail);
+        output_sim_data(interface,road,ego,stand,mov,onc)
     end
     
-    output_sim_data(interface,road,ego,stand,mov,onc) 
+    
     
     % *********************** function definitions ***********************
     
@@ -80,16 +81,54 @@ function sim_world()
                  -road.x(end)*((onc_x-ego_x) > road.x(round(end/2)));
         [onc_x,onc_y] = dynamic_transform_coordinates(...
             onc_x+o_shift,onc_y,ego_x,ego_y, theta);
-              
+        
+        % find sensor data
+        for ii = 1 : ego.sensor.n
+            ego.sensor.data(ii).stand = sensor_data_find(...
+                ego.sensor,ii,stand_x,stand_y);
+            ego.sensor.data(ii).mov = sensor_data_find(...
+                ego.sensor,ii,mov_x,mov_y);
+            ego.sensor.data(ii).onc = sensor_data_find(...
+                ego.sensor,ii,onc_x,onc_y);
+        end
+        
         % update dynamic axes
         set(road.m.dynamic, 'xData',road_y, 'yData',road_x)
         set(stand.m.dynamic,'xData',stand_y,'ydata',stand_x);
         set(mov.m.dynamic,  'xData',mov_y,  'yData',mov_x)
         set(onc.m.dynamic,  'xData',onc_y,  'yData',onc_x)
         
+        sensor_remap = [3 4 2 1];
+        ego.sensor.key = {'RL', 'RR', 'FR', 'FL'};
+        % update sensor-specific data
+        for ii = 1 : 4
+            set(ego.sensor.d{sensor_remap(ii)}.stand,...
+                'xData',ego.sensor.data(ii).stand(:,2),...
+                'yData',ego.sensor.data(ii).stand(:,1))
+            set(ego.sensor.d{sensor_remap(ii)}.mov,...
+                'xData',ego.sensor.data(ii).mov(:,2),...
+                'yData',ego.sensor.data(ii).mov(:,1))
+            set(ego.sensor.d{sensor_remap(ii)}.onc,...
+                'xData',ego.sensor.data(ii).onc(:,2),...
+                'yData',ego.sensor.data(ii).onc(:,1))
+        end
+        
         % increment time
         t = t + dt;
         pause(dt)
+    end
+
+    function data = sensor_data_find(sensor,ii,data_x,data_y)
+        rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);... % rotation frame
+                                   sind(t)  cosd(t)];
+        data = rd(data_x, data_y,sensor.theta(ii));
+        d = sqrt(data(:,1).^2 + data(:,2).^2);
+        theta = atan2d(data(:,2),data(:,1));
+        theta(theta < -360) = theta(theta < -360) + 360;
+        theta(theta > 360) = theta(theta > 360) - 360;
+        cond = logical((d < sensor.fov.range).*...
+            (-sensor.fov.theta/2<theta).*(theta<sensor.fov.theta/2));
+        data = data(cond,:);
     end
     
     function obj = init_road()
@@ -101,7 +140,7 @@ function sim_world()
     end
     
     function obj = init_ego(x_t, road)
-       obj = [];                % ego properties
+        obj = [];                % ego properties
         obj.v = 5;              % (m/s) ego speed
         obj.x = @(t,x_1) x_t(obj.v,t,x_1); % (m) ego x position;
         obj.y = @(x) road.y(x); % (m) ego y position
@@ -113,14 +152,23 @@ function sim_world()
         % initialize sensors
         obj.sensor.theta(1:obj.sensor.n) =... % sensor orientation
             45 + 360/obj.sensor.n*(1:obj.sensor.n);
+        % normalize to 360 deg
+        obj.sensor.theta(obj.sensor.theta > 360) =...
+            obj.sensor.theta(obj.sensor.theta > 360) - 360;
         obj.sensor.fov.draw.s = ...    % sensor drawing parameter
             (-0.5:0.02:0.5)'*obj.sensor.fov.theta;
+        % initialize global coverage drawing
+        obj.sensor.fov.draw.fov = obj.sensor.fov.range*...
+                [[0, 0];...
+                [cosd(obj.sensor.fov.draw.s),...
+                 sind(obj.sensor.fov.draw.s)];...
+                [0, 0]];
         % initialize sensor specific coverage circles
         for ii = 1 : obj.sensor.n
             obj.sensor.fov.draw.circ{ii} = obj.sensor.fov.range*...
                 [[0, 0];...
                 [cosd(obj.sensor.fov.draw.s+obj.sensor.theta(ii)),...
-                sind(obj.sensor.fov.draw.s+obj.sensor.theta(ii))];...
+                 sind(obj.sensor.fov.draw.s+obj.sensor.theta(ii))];...
                 [0, 0]];
         end 
     end
@@ -224,14 +272,30 @@ function sim_world()
         [o_x,o_y] = dynamic_transform_coordinates(...
                 o_x,o_y,e_x,e_y, th);
 
-        % dynamic axes plots
+        % sensor fov
         for ii = 1 : ego.sensor.n
             ego.sensor.m(ii) = patch(... % draw sensor FoV
                 ego.sensor.fov.draw.circ{ii}(:,1),...
                 ego.sensor.fov.draw.circ{ii}(:,2),...
                 'w','FaceAlpha',.3,...
                 'parent', interface.main_figure.ax_dynamic);
+            ego.sensor.s(ii) = patch(... % draw sensor FoV
+                ego.sensor.fov.draw.fov(:,2),...
+                ego.sensor.fov.draw.fov(:,1),...
+                'w','FaceAlpha',.3,...
+                'parent', interface.main_figure.ax_sensor(ii));
+            ego.sensor.d{ii}.stand = plot(...
+                interface.main_figure.ax_sensor(ii),...
+                [0],[0],'og');
+            ego.sensor.d{ii}.mov = plot(...
+                interface.main_figure.ax_sensor(ii),...
+                [0],[0],'o','color',[1 0.5 0]);
+            ego.sensor.d{ii}.onc = plot(...
+                interface.main_figure.ax_sensor(ii),...
+                [0],[0],'oc');
         end
+        
+        % dynamic axes plots
         road.m.dynamic = plot(interface.main_figure.ax_dynamic,...
             r_y,r_x,'w','linewidth',2);
         ego.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
@@ -262,18 +326,22 @@ function sim_world()
             'position',[0.55 0.73 0.45 0.21]);
         init_axes_style(interface.main_figure.ax_static,interface)
         interface.main_figure.ax_dynamic = axes(...
-            'position',[0.55 0.05 0.45 0.63]);
+            'position',[0.55 0.05 0.45 0.63],'xdir','reverse');
         init_axes_style(interface.main_figure.ax_dynamic,interface)
         % draw sensor axes
-        w = 0.2;        % axes width
-        h = 0.4;        % axes height
-        off = 0.03;
-        xy_off = [0     w+off 0 w+off;...
-                  h+off h+off 0 0]';
+        w = 0.21;        % axes width
+        h = 0.2;        % axes height
+        off_x = 0.02;       % x offset
+        off_y = 0.05;       % y offset
+        xy_off = [0       w+off_x 0 w+off_x;...
+                  h+off_y h+off_y 0 0      ]';
+        ttl = {'FL','FR','RL','RR'};
         for ii = 1 : 4
-            interface.main_figure.ax_sensor(1) = axes(...
-                'position',[0.15+xy_off(ii,1) 0.05+xy_off(ii,2) w h]);
-            init_axes_style(interface.main_figure.ax_sensor(1),interface)
+            interface.main_figure.ax_sensor(ii) = axes(...
+                'position',[0.15+xy_off(ii,1) 0.05+xy_off(ii,2) w h],...
+                'xdir','reverse');
+            init_axes_style(interface.main_figure.ax_sensor(ii),interface)
+            title(ttl{ii},'color','w')
         end
     end
 
