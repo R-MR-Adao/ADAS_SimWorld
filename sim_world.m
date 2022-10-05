@@ -29,49 +29,20 @@ function sim_world()
     % ******************* initialize object properties *******************
     dt = 0.05;              % (s) time resolution
     
-    road = [];              % road properties
-    road.T = 80;            % (m) road periodicity
-    road.x = 0:0.2:240;      % (m) road x array
-    road.y = @(x) ...       % (m) road y array
-        road.T/2*sin(2*pi/road.T*x).*cos(2*pi/road.T/3*x);
+    % initialize road map
+    road = init_road();
     
-    % motion equation
-        x_t = @(v,t,x_1)...     % (m) ego x position
-            v.*t - road.x(end).*floor(x_1/road.x(end));
+    % motion equation for ego and moving objects
+    x_t = @(v,t,x_1) v.*t - road.x(end).*floor(x_1/road.x(end));
     
-    ego = [];               % ego properties
-    ego.v = 5;              % (m/s) ego speed
-    ego.x = @(t,x_1) x_t(ego.v,t,x_1); % (m) ego x position;
-    ego.y = @(x) road.y(x); % (m) ego y position
-    ego.x_1 = 0;            % (m) ego's last x
-    % set sensor field od view properties
-    ego.sensor.n = 4;              % number of sensors
-    ego.sensor.fov.range = 80;     % sensor range
-    ego.sensor.fov.theta = 150;    % sensor angular range
-    % initialize sensors
-    ego.sensor.theta(1:ego.sensor.n) =... % sensor orientation
-        45 + 360/ego.sensor.n*(1:ego.sensor.n);
-    ego.sensor.fov.draw.s = ...    % sensor drawing parameter
-        (-0.5:0.02:0.5)'*ego.sensor.fov.theta;
-    % initialize sensor specific coverage circles
-    for ii = 1 : ego.sensor.n
-        ego.sensor.fov.draw.circ{ii} = ego.sensor.fov.range*...
-            [[0, 0];...
-            [cosd(ego.sensor.fov.draw.s+ego.sensor.theta(ii)),...
-            sind(ego.sensor.fov.draw.s+ego.sensor.theta(ii))];...
-            [0, 0]];
-    end
+    % initialize ego
+    ego = init_ego(x_t, road);
     
-    % standing objects
+    % initialize standing objects
     stand_n_objects = 10;
-    stand_rg_x = [min(road.x) max(road.x)]; % range for standing objects
-    stand_rg_y = [-1 1]*road.T ; % range for standing objects
-    stand = []; % standing (static) objects properties
-    % randomly generate standing object positions
-    stand.x = rand(stand_n_objects,1)*diff(stand_rg_x) + stand_rg_x(1);
-    stand.y = rand(stand_n_objects,1)*diff(stand_rg_y) + stand_rg_y(1);
+    stand = init_stand(stand_n_objects,road);
     
-    % moving objects
+    % initialize moving and oncoming objects
     mov_n_objects = 2;      % number of moving objects
     mov = init_mov_objects(mov_n_objects, 1,x_t,ego,road); % moving obj
     onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road); % oncoming obj
@@ -190,10 +161,10 @@ function sim_world()
             onc_x+o_shift,onc_y,ego_x,ego_y, theta);
         
         % update dynamic axes
-        set(road.m.dynamic,'xData',road_y,'yData',road_x)
-        set(stand.m.dynamic,'xData',s_y,'ydata',s_x);
-        set(mov.m.dynamic,'xData',mov_y,'yData',mov_x)
-        set(onc.m.dynamic,'xData',onc_y,'yData',onc_x)
+        set(road.m.dynamic, 'xData',road_y,'yData',road_x)
+        set(stand.m.dynamic,'xData',s_y,   'ydata',s_x);
+        set(mov.m.dynamic,  'xData',mov_y, 'yData',mov_x)
+        set(onc.m.dynamic,  'xData',onc_y, 'yData',onc_x)
         
         % increment time
         t = t + dt;
@@ -203,6 +174,49 @@ function sim_world()
     delete(interface.main_figure.f)
     
     % *********************** function definitions ***********************
+    
+    function obj = init_road()
+        obj = [];              % road properties
+        obj.T = 80;            % (m) road periodicity
+        obj.x = 0:0.2:240;     % (m) road x array
+        obj.y = @(x) ...       % (m) road y array
+            obj.T/2*sin(2*pi/obj.T*x).*cos(2*pi/obj.T/3*x);
+    end
+    
+    function obj = init_ego(x_t, road)
+       obj = [];                % ego properties
+        obj.v = 5;              % (m/s) ego speed
+        obj.x = @(t,x_1) x_t(obj.v,t,x_1); % (m) ego x position;
+        obj.y = @(x) road.y(x); % (m) ego y position
+        obj.x_1 = 0;            % (m) ego's last x
+        % set sensor field od view properties
+        obj.sensor.n = 4;              % number of sensors
+        obj.sensor.fov.range = 80;     % sensor range
+        obj.sensor.fov.theta = 150;    % sensor angular range
+        % initialize sensors
+        obj.sensor.theta(1:obj.sensor.n) =... % sensor orientation
+            45 + 360/obj.sensor.n*(1:obj.sensor.n);
+        obj.sensor.fov.draw.s = ...    % sensor drawing parameter
+            (-0.5:0.02:0.5)'*obj.sensor.fov.theta;
+        % initialize sensor specific coverage circles
+        for jj = 1 : obj.sensor.n
+            obj.sensor.fov.draw.circ{jj} = obj.sensor.fov.range*...
+                [[0, 0];...
+                [cosd(obj.sensor.fov.draw.s+obj.sensor.theta(jj)),...
+                sind(obj.sensor.fov.draw.s+obj.sensor.theta(jj))];...
+                [0, 0]];
+        end 
+    end
+
+    function obj = init_stand(n,road)
+        % range for standing objects
+        rg_x = [min(road.x) max(road.x)]; 
+        rg_y = [-1 1]*road.T ;
+        obj = []; % standing (static) objects properties
+        % randomly generate standing object positions
+        obj.x = rand(n,1)*diff(rg_x) + rg_x(1);
+        obj.y = rand(n,1)*diff(rg_y) + rg_y(1); 
+    end
     
     function obj = init_mov_objects(n, direction, x_t, ego, road)        
         % moving objects
