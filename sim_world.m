@@ -53,11 +53,11 @@ function sim_world()
         % ************************* static axes *************************
         
         % update static axes
-        set(ego.m.static,'xData',ego_y,'yData',ego_x)
+        set(ego.m.static,'xData',ego_x,'yData',ego_y)
         ego.x_1 = ego.x(t,0);
-        set(mov.m.static,'xData',mov_y,'yData',mov_x)
+        set(mov.m.static,'xData',mov_x,'yData',mov_y)
         mov.x_1 = mov.x(t,0);
-        set(onc.m.static,'xData',onc_y,'yData',onc_x)
+        set(onc.m.static,'xData',onc_x,'yData',onc_y)
         onc.x_1 = onc.x(t,0);
         
         % ************************* dynamic axes *************************
@@ -80,7 +80,7 @@ function sim_world()
                  -road.x(end)*((onc_x-ego_x) > road.x(round(end/2)));
         [onc_x,onc_y] = dynamic_transform_coordinates(...
             onc_x+o_shift,onc_y,ego_x,ego_y, theta);
-        
+              
         % update dynamic axes
         set(road.m.dynamic, 'xData',road_y, 'yData',road_x)
         set(stand.m.dynamic,'xData',stand_y,'ydata',stand_x);
@@ -116,11 +116,11 @@ function sim_world()
         obj.sensor.fov.draw.s = ...    % sensor drawing parameter
             (-0.5:0.02:0.5)'*obj.sensor.fov.theta;
         % initialize sensor specific coverage circles
-        for jj = 1 : obj.sensor.n
-            obj.sensor.fov.draw.circ{jj} = obj.sensor.fov.range*...
+        for ii = 1 : obj.sensor.n
+            obj.sensor.fov.draw.circ{ii} = obj.sensor.fov.range*...
                 [[0, 0];...
-                [cosd(obj.sensor.fov.draw.s+obj.sensor.theta(jj)),...
-                sind(obj.sensor.fov.draw.s+obj.sensor.theta(jj))];...
+                [cosd(obj.sensor.fov.draw.s+obj.sensor.theta(ii)),...
+                sind(obj.sensor.fov.draw.s+obj.sensor.theta(ii))];...
                 [0, 0]];
         end 
     end
@@ -178,8 +178,8 @@ function sim_world()
     function [interface, road, ego, stand, mov, onc, road_tail] =...
             init_plots(interface, road, ego, stand, mov, onc)
         set(interface.main_figure.ax_static,... % dynamic axes limits
-            'xlim', [-1 1]*road.T/2,...
-            'ylim', [road.x(1) road.x(end)]);
+            'xlim', [road.x(1) road.x(end)],...
+            'ylim', [-1 1]*road.T/2);
         set(interface.main_figure.ax_dynamic,...% dynamic axes limits
             'xlim', [-1 1]*(ego.sensor.fov.range + 10),...
             'ylim', [-1 1]*(ego.sensor.fov.range + 10));
@@ -200,15 +200,15 @@ function sim_world()
 
         % static axes plots
         road.m.static = plot(interface.main_figure.ax_static,...
-            r_y, r_x,'w','linewidth',2);
+            r_x, r_y,'w','linewidth',2);
         ego.m.static =  plot(interface.main_figure.ax_static,...
-            e_y,e_x,'or','linewidth',2);
+            e_x,e_y,'or','linewidth',2);
         stand.m.static = plot(interface.main_figure.ax_static,...
-            stand.y, stand(1).x,'og','linewidth',2);
+            stand.x, stand.y,'og','linewidth',2);
         mov.m.static =  plot(interface.main_figure.ax_static,...
-            m_y,m_x,'o','color',[1 0.5 0],'linewidth',2);
+            m_x,m_y,'o','color',[1 0.5 0],'linewidth',2);
         onc.m.static =  plot(interface.main_figure.ax_static,...
-            o_y,o_x,'oc','linewidth',2);
+            o_x,o_y,'oc','linewidth',2);
 
         % dynamic axes transformations
         % transform road coordinates
@@ -229,7 +229,8 @@ function sim_world()
             ego.sensor.m(ii) = patch(... % draw sensor FoV
                 ego.sensor.fov.draw.circ{ii}(:,1),...
                 ego.sensor.fov.draw.circ{ii}(:,2),...
-                'w','FaceAlpha',.3);
+                'w','FaceAlpha',.3,...
+                'parent', interface.main_figure.ax_dynamic);
         end
         road.m.dynamic = plot(interface.main_figure.ax_dynamic,...
             r_y,r_x,'w','linewidth',2);
@@ -253,22 +254,34 @@ function sim_world()
         interface.colors.plot_lines      = [1 1 1]*1;
         interface.main_figure.f = figure(...
             'color',interface.colors.background,...
-            'position',[1080 30 800 900],... %[450 80 1080 720]
+            'position',[1 31 1920 973],... %[450 80 1080 720]
             'CloseRequestFcn',@f_CloseRequestFcn);
+        
+        % initialize axes
         interface.main_figure.ax_static = axes(...
-            'position',[0.05 0.05 0.3 0.9],...
-            'color',interface.colors.plot_background,...
-            'xcolor',interface.colors.plot_lines,...
-            'ycolor',interface.colors.plot_lines);
-        axis image
-        hold on
-        grid on
-        box on
+            'position',[0.55 0.73 0.45 0.21]);
+        init_axes_style(interface.main_figure.ax_static,interface)
         interface.main_figure.ax_dynamic = axes(...
-            'position',[0.45 0.05 0.5 0.9],...
-            'color',interface.colors.plot_background,...
-            'xcolor',interface.colors.plot_lines,...
-            'ycolor',interface.colors.plot_lines);
+            'position',[0.55 0.05 0.45 0.63]);
+        init_axes_style(interface.main_figure.ax_dynamic,interface)
+        % draw sensor axes
+        w = 0.2;        % axes width
+        h = 0.4;        % axes height
+        off = 0.03;
+        xy_off = [0     w+off 0 w+off;...
+                  h+off h+off 0 0]';
+        for ii = 1 : 4
+            interface.main_figure.ax_sensor(1) = axes(...
+                'position',[0.15+xy_off(ii,1) 0.05+xy_off(ii,2) w h]);
+            init_axes_style(interface.main_figure.ax_sensor(1),interface)
+        end
+    end
+
+    function init_axes_style(ax, interface)
+       set(ax,...
+           'color',interface.colors.plot_background,...
+           'xcolor',interface.colors.plot_lines,...
+           'ycolor',interface.colors.plot_lines)
         axis image
         hold on
         grid on
