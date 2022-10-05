@@ -7,9 +7,10 @@ function sim_world()
     interface.colors.plot_lines      = [1 1 1]*1;
     interface.main_figure.f = figure(...
         'color',interface.colors.background,...
-        'position',[1080 30 800 900]);%[450 80 1080 720]);
+        'position',[1080 30 800 900],... %[450 80 1080 720]
+        'CloseRequestFcn',@f_CloseRequestFcn);
     interface.main_figure.ax_static = axes(...
-        'position',[0.05 0.05 0.4 0.9],...
+        'position',[0.05 0.05 0.3 0.9],...
         'color',interface.colors.plot_background,...
         'xcolor',interface.colors.plot_lines,...
         'ycolor',interface.colors.plot_lines);
@@ -17,7 +18,7 @@ function sim_world()
     hold on
     grid on
     interface.main_figure.ax_dynamic = axes(...
-        'position',[0.55 0.05 0.4 0.9],...
+        'position',[0.45 0.05 0.5 0.9],...
         'color',interface.colors.plot_background,...
         'xcolor',interface.colors.plot_lines,...
         'ycolor',interface.colors.plot_lines);
@@ -29,10 +30,10 @@ function sim_world()
     dt = 0.05;              % (s) time resolution
     
     road = [];              % road properties
-    road.T = 40;            % (m) road periodicity
-    road.x = 0:0.2:80;      % (m) road x array
+    road.T = 80;            % (m) road periodicity
+    road.x = 0:0.2:200;      % (m) road x array
     road.y = @(x) ...       % (m) road y array
-        road.T/2*sin(2*pi/road.T*x).*cos(2*pi/road.T/2*x);
+        road.T/2*sin(2*pi/road.T*x).*cos(2*pi/road.T/4*x);
     
     ego = [];               % ego properties
     ego.v = 5;              % (m/s) ego speed
@@ -40,6 +41,21 @@ function sim_world()
         ego.v*t - road.x(end)*floor(x_1/road.x(end));
     ego.y = @(x) road.y(x); % (m) ego y position
     ego.x_1 = 0;            % (m) ego's last x
+    % set sensor field od view properties
+    ego.sensor.n = 4;              % number of sensors
+    ego.sensor.fov.range = 60;     % sensor range
+    ego.sensor.fov.theta = 150;    % sensor angular range
+    % initialize sensors
+    ego.sensor.theta(1:ego.sensor.n) =...
+        45 + 360/ego.sensor.n*(1:ego.sensor.n);       % sensor orientation
+    ego.sensor.fov.draw.s = (-0.5:0.02:0.5)'*ego.sensor.fov.theta;
+    for ii = 1 : ego.sensor.n
+    ego.sensor.fov.draw.circ{ii} = ego.sensor.fov.range*...
+        [[0, 0];...
+        [cosd(ego.sensor.fov.draw.s+ego.sensor.theta(ii)),...
+        sind(ego.sensor.fov.draw.s+ego.sensor.theta(ii))];...
+        [0, 0]];
+    end
     
     stand_n_objects = 10;
     stand_rg_x = [min(road.x) max(road.x)]; % range for standing objects
@@ -52,11 +68,11 @@ function sim_world()
     % ************ initialize simulation animation variables *************
     t = 0;                                      % (s) time
     set(interface.main_figure.ax_static,... % dynamic axes limits
-        'xlim', [-20 20],...
-        'ylim', [0 80]);
+        'xlim', [-1 1]*road.T/2,...
+        'ylim', [road.x(1) road.x(end)]);
     set(interface.main_figure.ax_dynamic,...% dynamic axes limits
-        'xlim', [-20 20],...
-        'ylim', [-40 40]);
+        'xlim', [-1 1]*(ego.sensor.fov.range + 10),...
+        'ylim', [-1 1]*(ego.sensor.fov.range + 10));
     road_tail = road.x(round(end/2));       % (m) road tail behind ego
     
     % initialze common variables
@@ -91,10 +107,15 @@ function sim_world()
         stand.m(ii).dynamic = plot(interface.main_figure.ax_dynamic,...
             s_y(ii),s_x(ii),'og','linewidth',2);
     end
-    
+    for ii = 1 : ego.sensor.n
+        ego.sensor.m(ii) = patch(...
+            ego.sensor.fov.draw.circ{ii}(:,1),...
+            ego.sensor.fov.draw.circ{ii}(:,2),...
+            'w','FaceAlpha',.3);
+    end
     % ************************* simulation start *************************
     
-    while t < 100;
+    while strcmp(get(interface.main_figure.f,'visible'),'on')
         
         % update common variables
         ego_x =  ego.x(t,ego.x_1);
@@ -130,6 +151,8 @@ function sim_world()
         pause(dt)
     end
     
+    delete(interface.main_figure.f)
+    
     % *********************** function definitions ***********************
     
     function [x,y,theta] = dynamic_transform_coordinates(...
@@ -158,6 +181,11 @@ function sim_world()
         x = xy(:,1);
         y = xy(:,2);
         
+    end
+
+    % ************************ interface callbacks ************************
+    function f_CloseRequestFcn(source,eventData)
+        set(source,'visible','off')
     end
     
 end
