@@ -30,60 +30,71 @@ function sim_world()
     %initialize simulation time
     t = 0; % (s) time
     while strcmp(get(interface.main_figure.f,'visible'),'on')
-        [t, dt, road, ego, stand, mov, onc, road_tail] = ...
-            simulation_run(t, dt, road, ego, stand, mov, onc, road_tail);
+        
+        % run simulation
+        [road, ego, stand, mov, onc, road_tail] = ...
+            simulation_run(t, road, ego, stand, mov, onc, road_tail);
+        
+        % increment time
+        t = t + dt;
+        pause(dt)
+        
+        % output data to base workspace
         output_sim_data(interface,road,ego,stand,mov,onc)
     end
     
-    
-    
     % *********************** function definitions ***********************
     
-    function [t, dt, road, ego, stand, mov, onc, road_tail] =...
-            simulation_run(t, dt, road, ego, stand, mov, onc, road_tail)
-        % update common variables
+    function [road, ego, stand, mov, onc, road_tail] =...
+            simulation_run(t, road, ego, stand, mov, onc, road_tail)
+        
+        % ****************** update data for static plot ******************
         ego_x =  ego.x(t,ego.x_1);
         ego_y =  ego.y(ego_x);
+        ego.x_1 = ego.x(t,0);
+        
         mov_x =  mov.x(t,mov.x_1);
         mov_y =  mov.y(mov_x);
+        mov.x_1 = mov.x(t,0);
+        
         onc_x =  onc.x(t,onc.x_1);
         onc_y =  onc.y(onc_x);
-        road_x = road.x + ego.x_1-road_tail;
-        road_y = road.y(road_x);
-        
-        % ************************* static axes *************************
-        
-        % update static axes
-        set(ego.m.static,'xData',ego_x,'yData',ego_y)
-        ego.x_1 = ego.x(t,0);
-        set(mov.m.static,'xData',mov_x,'yData',mov_y)
-        mov.x_1 = mov.x(t,0);
-        set(onc.m.static,'xData',onc_x,'yData',onc_y)
         onc.x_1 = onc.x(t,0);
         
-        % ************************* dynamic axes *************************
+        road_x = road.x + ego.x_1-road_tail;
+        road_y = road.y(road_x);       
         
-        % update dynamic varibles
+        % update static axis
+        update_plot_static(ego,ego_x,ego_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
+        
+        % ***************** update data for dynamic plot *****************
+        
+        % transform road coordinates
         [road_x,road_y,theta] = dynamic_transform_coordinates(...
             road_x,road_y,ego.x_1,ego.y(ego.x_1));
-        % shift standing objects for smoother rendering
+        
+        % transform standing object coordinates
         s_shift = road.x(end)*((ego_x-stand.x) > road.x(round(end/2))) +... 
                  -road.x(end)*((stand.x-ego_x) > road.x(round(end/2)));
         [stand_x,stand_y] = dynamic_transform_coordinates(...
             stand.x+s_shift,stand.y,ego_x,ego_y, theta);
+        
         % transform moving object corrdinates
         m_shift = road.x(end)*((ego_x-mov_x) > road.x(round(end/2))) +... 
                  -road.x(end)*((mov_x-ego_x) > road.x(round(end/2)));
         [mov_x,mov_y] = dynamic_transform_coordinates(...
             mov_x+m_shift,mov_y,ego_x,ego_y, theta);
+        
         % transform oncoming object corrdinates
         o_shift = road.x(end)*((ego_x-onc_x) > road.x(round(end/2))) +... 
                  -road.x(end)*((onc_x-ego_x) > road.x(round(end/2)));
         [onc_x,onc_y] = dynamic_transform_coordinates(...
             onc_x+o_shift,onc_y,ego_x,ego_y, theta);
         
-        % find sensor data
+        % find data in sensor frames
         for ii = 1 : ego.sensor.n
+            ego.sensor.data(ii).road = sensor_data_find(...
+                ego.sensor,ii,road_x,road_y);
             ego.sensor.data(ii).stand = sensor_data_find(...
                 ego.sensor,ii,stand_x,stand_y);
             ego.sensor.data(ii).mov = sensor_data_find(...
@@ -93,42 +104,28 @@ function sim_world()
         end
         
         % update dynamic axes
-        set(road.m.dynamic, 'xData',road_y, 'yData',road_x)
-        set(stand.m.dynamic,'xData',stand_y,'ydata',stand_x);
-        set(mov.m.dynamic,  'xData',mov_y,  'yData',mov_x)
-        set(onc.m.dynamic,  'xData',onc_y,  'yData',onc_x)
-        
-        sensor_remap = [3 4 2 1];
-        ego.sensor.key = {'RL', 'RR', 'FR', 'FL'};
-        % update sensor-specific data
-        for ii = 1 : 4
-            set(ego.sensor.d{sensor_remap(ii)}.stand,...
-                'xData',ego.sensor.data(ii).stand(:,2),...
-                'yData',ego.sensor.data(ii).stand(:,1))
-            set(ego.sensor.d{sensor_remap(ii)}.mov,...
-                'xData',ego.sensor.data(ii).mov(:,2),...
-                'yData',ego.sensor.data(ii).mov(:,1))
-            set(ego.sensor.d{sensor_remap(ii)}.onc,...
-                'xData',ego.sensor.data(ii).onc(:,2),...
-                'yData',ego.sensor.data(ii).onc(:,1))
-        end
-        
-        % increment time
-        t = t + dt;
-        pause(dt)
+        update_plot_dynamic(road,road_x,road_y,ego,...
+            stand,stand_x,stand_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
     end
 
     function data = sensor_data_find(sensor,ii,data_x,data_y)
-        rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);... % rotation frame
+        % rotation matrix
+        rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);... 
                                    sind(t)  cosd(t)];
+        
+        % rotate data to sensor frame
         data = rd(data_x, data_y,sensor.theta(ii));
-        d = sqrt(data(:,1).^2 + data(:,2).^2);
-        theta = atan2d(data(:,2),data(:,1));
-        theta(theta < -360) = theta(theta < -360) + 360;
-        theta(theta > 360) = theta(theta > 360) - 360;
-        cond = logical((d < sensor.fov.range).*...
+        
+        % check if data is in sensor FoV
+        d = sqrt(data(:,1).^2 + data(:,2).^2);  % distance from ego
+        theta = atan2d(data(:,2),data(:,1));    % angle
+        theta(theta < -360) = theta(theta < -360) + 360; % normalize range
+        theta(theta > 360) = theta(theta > 360) - 360;   % normalize range
+        cond = logical((d < sensor.fov.range).*...       % in range
             (-sensor.fov.theta/2<theta).*(theta<sensor.fov.theta/2));
-        data = data(cond,:);
+        
+        % remove out of range points
+        data(~cond,:) = nan;
     end
     
     function obj = init_road()
@@ -170,7 +167,9 @@ function sim_world()
                 [cosd(obj.sensor.fov.draw.s+obj.sensor.theta(ii)),...
                  sind(obj.sensor.fov.draw.s+obj.sensor.theta(ii))];...
                 [0, 0]];
-        end 
+        end
+        obj.sensor.remap = [3 4 2 1];
+        obj.sensor.key = {'RL', 'RR', 'FR', 'FL'};
     end
 
     function obj = init_stand(n,road)
@@ -274,25 +273,30 @@ function sim_world()
 
         % sensor fov
         for ii = 1 : ego.sensor.n
+            % dynamic axes
             ego.sensor.m(ii) = patch(... % draw sensor FoV
                 ego.sensor.fov.draw.circ{ii}(:,1),...
                 ego.sensor.fov.draw.circ{ii}(:,2),...
                 'w','FaceAlpha',.3,...
                 'parent', interface.main_figure.ax_dynamic);
+            % sensor specific FoV
             ego.sensor.s(ii) = patch(... % draw sensor FoV
                 ego.sensor.fov.draw.fov(:,2),...
                 ego.sensor.fov.draw.fov(:,1),...
                 'w','FaceAlpha',.3,...
                 'parent', interface.main_figure.ax_sensor(ii));
+            ego.sensor.d{ii}.road = plot(...
+                interface.main_figure.ax_sensor(ii),...
+                0,0,'w','linewidth',2);
             ego.sensor.d{ii}.stand = plot(...
                 interface.main_figure.ax_sensor(ii),...
-                [0],[0],'og');
+                0,0,'og','linewidth',2);
             ego.sensor.d{ii}.mov = plot(...
                 interface.main_figure.ax_sensor(ii),...
-                [0],[0],'o','color',[1 0.5 0]);
+                0,0,'o','color',[1 0.5 0],'linewidth',2);
             ego.sensor.d{ii}.onc = plot(...
                 interface.main_figure.ax_sensor(ii),...
-                [0],[0],'oc');
+                0,0,'oc','linewidth',2);
         end
         
         % dynamic axes plots
@@ -310,6 +314,41 @@ function sim_world()
     end
 
     % ***************************** interface *****************************
+    
+    function update_plot_static(...
+            ego,ego_x,ego_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
+        % update static axes
+        set(ego.m.static,'xData',ego_x,'yData',ego_y)
+        set(mov.m.static,'xData',mov_x,'yData',mov_y)
+        set(onc.m.static,'xData',onc_x,'yData',onc_y)
+    end
+
+    function update_plot_dynamic(...
+            road,road_x,road_y,ego,...
+            stand,stand_x,stand_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
+        
+        % update dynamic plot data
+        set(road.m.dynamic, 'xData',road_y, 'yData',road_x)
+        set(stand.m.dynamic,'xData',stand_y,'ydata',stand_x);
+        set(mov.m.dynamic,  'xData',mov_y,  'yData',mov_x)
+        set(onc.m.dynamic,  'xData',onc_y,  'yData',onc_x)
+        
+        % update sensor-specific data
+        for ii = 1 : ego.sensor.n
+            set(ego.sensor.d{ego.sensor.remap(ii)}.road,...
+                'xData',ego.sensor.data(ii).road(:,2),...
+                'yData',ego.sensor.data(ii).road(:,1))
+            set(ego.sensor.d{ego.sensor.remap(ii)}.stand,...
+                'xData',ego.sensor.data(ii).stand(:,2),...
+                'yData',ego.sensor.data(ii).stand(:,1))
+            set(ego.sensor.d{ego.sensor.remap(ii)}.mov,...
+                'xData',ego.sensor.data(ii).mov(:,2),...
+                'yData',ego.sensor.data(ii).mov(:,1))
+            set(ego.sensor.d{ego.sensor.remap(ii)}.onc,...
+                'xData',ego.sensor.data(ii).onc(:,2),...
+                'yData',ego.sensor.data(ii).onc(:,1))
+        end
+    end
     
     function interface = init_interface()
         interface = [];
@@ -329,10 +368,10 @@ function sim_world()
             'position',[0.55 0.05 0.45 0.63],'xdir','reverse');
         init_axes_style(interface.main_figure.ax_dynamic,interface)
         % draw sensor axes
-        w = 0.21;        % axes width
+        w = 0.21;       % axes width
         h = 0.2;        % axes height
-        off_x = 0.02;       % x offset
-        off_y = 0.05;       % y offset
+        off_x = 0.02;   % x offset
+        off_y = 0.05;   % y offset
         xy_off = [0       w+off_x 0 w+off_x;...
                   h+off_y h+off_y 0 0      ]';
         ttl = {'FL','FR','RL','RR'};
@@ -355,7 +394,7 @@ function sim_world()
         grid on
         box on
     end
-    
+
     function output_sim_data(interface,road,ego,stand,mov,onc)
         sim_world_data.road = road;
         sim_world_data.ego = ego;
@@ -366,7 +405,7 @@ function sim_world()
         assignin('base','sim_world_data',sim_world_data)
     end
 
-    function f_CloseRequestFcn(source,eventData)
+    function f_CloseRequestFcn(source,~)
         set(source,'visible','off')
     end
     
