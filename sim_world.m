@@ -31,9 +31,9 @@ function sim_world()
     
     road = [];              % road properties
     road.T = 80;            % (m) road periodicity
-    road.x = 0:0.2:200;      % (m) road x array
+    road.x = 0:0.2:240;      % (m) road x array
     road.y = @(x) ...       % (m) road y array
-        road.T/2*sin(2*pi/road.T*x).*cos(2*pi/road.T/4*x);
+        road.T/2*sin(2*pi/road.T*x).*cos(2*pi/road.T/3*x);
     
     ego = [];               % ego properties
     ego.v = 5;              % (m/s) ego speed
@@ -43,7 +43,7 @@ function sim_world()
     ego.x_1 = 0;            % (m) ego's last x
     % set sensor field od view properties
     ego.sensor.n = 4;              % number of sensors
-    ego.sensor.fov.range = 60;     % sensor range
+    ego.sensor.fov.range = 80;     % sensor range
     ego.sensor.fov.theta = 150;    % sensor angular range
     % initialize sensors
     ego.sensor.theta(1:ego.sensor.n) =...
