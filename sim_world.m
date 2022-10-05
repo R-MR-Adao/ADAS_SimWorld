@@ -35,10 +35,14 @@ function sim_world()
     road.y = @(x) ...       % (m) road y array
         road.T/2*sin(2*pi/road.T*x).*cos(2*pi/road.T/3*x);
     
+    % motion equation
+    
+    x_t = @(v,t,x_1)...     % (m) ego x position
+        v*t - road.x(end)*floor(x_1/road.x(end));
+    
     ego = [];               % ego properties
     ego.v = 5;              % (m/s) ego speed
-    ego.x = @(t,x_1)...     % (m) ego x position
-        ego.v*t - road.x(end)*floor(x_1/road.x(end));
+    ego.x = @(t,x_1) x_t(ego.v,t,x_1); % (m) ego x position;
     ego.y = @(x) road.y(x); % (m) ego y position
     ego.x_1 = 0;            % (m) ego's last x
     % set sensor field od view properties
@@ -46,17 +50,20 @@ function sim_world()
     ego.sensor.fov.range = 80;     % sensor range
     ego.sensor.fov.theta = 150;    % sensor angular range
     % initialize sensors
-    ego.sensor.theta(1:ego.sensor.n) =...
-        45 + 360/ego.sensor.n*(1:ego.sensor.n);       % sensor orientation
-    ego.sensor.fov.draw.s = (-0.5:0.02:0.5)'*ego.sensor.fov.theta;
+    ego.sensor.theta(1:ego.sensor.n) =... % sensor orientation
+        45 + 360/ego.sensor.n*(1:ego.sensor.n);
+    ego.sensor.fov.draw.s = ...    % sensor drawing parameter
+        (-0.5:0.02:0.5)'*ego.sensor.fov.theta;
+    % initialize sensor specific coverage circles
     for ii = 1 : ego.sensor.n
-    ego.sensor.fov.draw.circ{ii} = ego.sensor.fov.range*...
-        [[0, 0];...
-        [cosd(ego.sensor.fov.draw.s+ego.sensor.theta(ii)),...
-        sind(ego.sensor.fov.draw.s+ego.sensor.theta(ii))];...
-        [0, 0]];
+        ego.sensor.fov.draw.circ{ii} = ego.sensor.fov.range*...
+            [[0, 0];...
+            [cosd(ego.sensor.fov.draw.s+ego.sensor.theta(ii)),...
+            sind(ego.sensor.fov.draw.s+ego.sensor.theta(ii))];...
+            [0, 0]];
     end
     
+    % standing objects
     stand_n_objects = 10;
     stand_rg_x = [min(road.x) max(road.x)]; % range for standing objects
     stand_rg_y = [-1 1]*road.T ; % range for standing objects
@@ -64,6 +71,16 @@ function sim_world()
     % randomly generate standing object positions
     stand.x = rand(stand_n_objects,1)*diff(stand_rg_x) + stand_rg_x(1);
     stand.y = rand(stand_n_objects,1)*diff(stand_rg_y) + stand_rg_y(1);
+    
+    % moving objects
+    mov = [];               % moving object properties
+    mov.v = -5;             % (m/s) ego speed
+    mov.t0 = ...            % random starting position
+        rand(1)*diff(road.x([1 end]))/mov.v;
+    mov.x = @(t,x_1)...     % (m) ego x position;
+        x_t(mov.v,t+mov.t0,x_1); 
+    mov.y = @(x) road.y(x); % (m) moving object y position
+    mov.x_1 = 0;            % (m) moving object last x
     
     % ************ initialize simulation animation variables *************
     t = 0;                                      % (s) time
@@ -82,6 +99,9 @@ function sim_world()
     ego_x = ego.x(t,ego.x_1);   % ego x position
     ego_y = ego.y(ego_x);       % ego y position
     
+    mov_x = mov.x(t,mov.x_1);   % ego x position
+    mov_y = mov.y(mov_x);       % ego y position
+    
     % static axes plots
     road.m.static = plot(interface.main_figure.ax_static,...
         road_y, road_x,'w','linewidth',2);
@@ -89,6 +109,8 @@ function sim_world()
         ego_y,ego_x,'or','linewidth',2);
     stand(1).m.static = plot(interface.main_figure.ax_static,...
         stand(1).y, stand(1).x,'og','linewidth',2);
+    mov.m.static =  plot(interface.main_figure.ax_static,...
+        mov_y,mov_x,'ob','linewidth',2);
     
     % dynamic axes transformations
     % transform road coordinates
@@ -97,6 +119,9 @@ function sim_world()
     % transform standing object coordinates
     [s_x,s_y] = dynamic_transform_coordinates(...
             stand.x,stand.y,ego_x,ego_y, theta);
+    % transform moving object corrdinates
+    [mov_x,mov_y] = dynamic_transform_coordinates(...
+            mov_x,mov_y,ego_x,ego_y, theta);
     
     % dynamic axes plots
     road.m.dynamic = plot(interface.main_figure.ax_dynamic,...
@@ -107,6 +132,9 @@ function sim_world()
         stand.m(ii).dynamic = plot(interface.main_figure.ax_dynamic,...
             s_y(ii),s_x(ii),'og','linewidth',2);
     end
+    mov.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
+        mov_x,mov_y,'ob','linewidth',2);
+    % draw sensor FoV
     for ii = 1 : ego.sensor.n
         ego.sensor.m(ii) = patch(...
             ego.sensor.fov.draw.circ{ii}(:,1),...
@@ -120,6 +148,8 @@ function sim_world()
         % update common variables
         ego_x =  ego.x(t,ego.x_1);
         ego_y =  ego.y(ego_x);
+        mov_x =  mov.x(t,mov.x_1);
+        mov_y =  mov.y(mov_x);
         road_x = road.x + ego.x_1-road_tail;
         road_y = road.y(road_x);
         
@@ -128,6 +158,8 @@ function sim_world()
         % update static axes
         set(ego.m.static,'xData',ego_y,'yData',ego_x)
         ego.x_1 = ego.x(t,0);
+        set(mov.m.static,'xData',mov_y,'yData',mov_x)
+        mov.x_1 = mov.x(t,0);
         
         % ************************* dynamic axes *************************
         
@@ -139,12 +171,18 @@ function sim_world()
                  -road.x(end)*((stand.x-ego_x) > road.x(round(end/2)));
         [s_x,s_y] = dynamic_transform_coordinates(...
             stand.x+s_shift,stand.y,ego_x,ego_y, theta);
+        % transform moving object corrdinates
+        m_shift = road.x(end)*((ego_x-mov_x) > road.x(round(end/2))) +... 
+                -road.x(end)*((mov_x-ego_x) > road.x(round(end/2)));
+        [mov_x,mov_y] = dynamic_transform_coordinates(...
+            mov_x+m_shift,mov_y,ego_x,ego_y, theta);
         
         % update dynamic axes
         set(road.m.dynamic,'xData',road_y,'yData',road_x)
         for ii = 1 : stand_n_objects
             set(stand.m(ii).dynamic,'xData',s_y(ii),'ydata',s_x(ii));
         end
+        set(mov.m.dynamic,'xData',mov_y,'yData',mov_x)
         
         % increment time
         t = t + dt;
