@@ -2,30 +2,54 @@ function sim_world()
     close all
     
     interface = [];
-    interface.main_figure.f = figure('color','w');
-    interface.main_figure.ax_static = axes('position',[0.1 0.1 0.3 0.8]);
+    interface.colors.background      = [1 1 1]*0.25;
+    interface.colors.plot_background = [1 1 1]*0.4;
+    interface.colors.plot_lines      = [1 1 1]*1;
+    interface.main_figure.f = figure(...
+        'color',interface.colors.background,...
+        'position',[1080 30 800 900]);%[450 80 1080 720]);
+    interface.main_figure.ax_static = axes(...
+        'position',[0.05 0.05 0.4 0.9],...
+        'color',interface.colors.plot_background,...
+        'xcolor',interface.colors.plot_lines,...
+        'ycolor',interface.colors.plot_lines);
     axis image
     hold on
-    interface.main_figure.ax_dynamic = axes('position',[0.6 0.1 0.3 0.8]);
+    grid on
+    interface.main_figure.ax_dynamic = axes(...
+        'position',[0.55 0.05 0.4 0.9],...
+        'color',interface.colors.plot_background,...
+        'xcolor',interface.colors.plot_lines,...
+        'ycolor',interface.colors.plot_lines);
     axis image
     hold on
-    xlim([-20 20]); ylim([-20 20])
+    grid on
     
-    dt = 0.05;   % s
+    % ******************* initialize object properties *******************
+    dt = 0.05;              % (s) time resolution
     
-    road = [];
-    road.x = 0:80;  % units
-    road.T = 40;
-    road.y = @(x) road.T/2*sin(2*pi/road.T*x);
+    road = [];              % road properties
+    road.T = 40;            % (m) road periodicity
+    road.x = 0:0.2:80;      % (m) road x array
+    road.y = @(x) ...       % (m) road y array
+        road.T/2*sin(2*pi/road.T*x).*cos(2*pi/road.T/3*x);
     
-    ego = [];
-    ego.v = 10;     % units/s
-    ego.x = @(t,x_1) ego.v*t - road.x(end)*floor(x_1/road.x(end));
-    ego.y = @(x) road.y(x);
-    ego.x_1 = 0;
+    ego = [];               % ego properties
+    ego.v = 5;             % (m/s) ego speed
+    ego.x = @(t,x_1)...     % (m) ego x position
+        ego.v*t - road.x(end)*floor(x_1/road.x(end));
+    ego.y = @(x) road.y(x); % (m) ego y position
+    ego.x_1 = 0;            % (m) ego's last x
     
-    % initialize simulation animation variables
-    t = 0;          % time
+    % ************ initialize simulation animation variables *************
+    t = 0;                                      % (s) time
+    set(interface.main_figure.ax_static,...     % dynamic axes limits
+        'xlim', [-20 20],...
+        'ylim', [0 80]);
+    set(interface.main_figure.ax_dynamic,...    % dynamic axes limits
+        'xlim', [-20 20],...
+        'ylim', [-40 40]);
+    road_tail = road.x(round(end/2));           % (m) road tail behind ego
     
     road_x = road.x;
     road_y = road.y(road_x);
@@ -35,24 +59,28 @@ function sim_world()
     
     % static axis
     road.m.static = plot(interface.main_figure.ax_static,...
-        road_y, road_x);
+        road_y, road_x,'w','linewidth',2);
     ego.m.static =  plot(interface.main_figure.ax_static,...
-        ego_y,ego_x,'or');
+        ego_y,ego_x,'or','linewidth',2);
     
     % dynamic axes
     [road_x,road_y] = dynamic_transform_coordinates(...
         road_x,road_y,ego_x,ego_y);
     road.m.dynamic = plot(interface.main_figure.ax_dynamic,...
-        road_y,road_x);
+        road_y,road_x,'w','linewidth',2);
     ego.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
-        0,0,'or');
+        0,0,'or','linewidth',2);
+    
+    % ************************* simulation start *************************
     
     while t < 100;
+        
+        % define plot properties
         
         % update common variables
         ego_x = ego.x(t,ego.x_1);
         ego_y = ego.y(ego_x);
-        road_x = road.x + ego.x_1;
+        road_x = road.x + ego.x_1-road_tail;
         road_y = road.y(road_x);
         
         % ************************* static axes *************************
@@ -72,6 +100,8 @@ function sim_world()
         t = t + dt;
         pause(dt)
     end
+    
+    % *********************** function definitions ***********************
     
     function [x, y] = dynamic_transform_coordinates(x,y,x_ref,y_ref)
         % rotation matrix
