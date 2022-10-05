@@ -38,7 +38,7 @@ function sim_world()
     % motion equation
     
     x_t = @(v,t,x_1)...     % (m) ego x position
-        v*t - road.x(end)*floor(x_1/road.x(end));
+        v.*t - road.x(end).*floor(x_1/road.x(end));
     
     ego = [];               % ego properties
     ego.v = 5;              % (m/s) ego speed
@@ -73,14 +73,15 @@ function sim_world()
     stand.y = rand(stand_n_objects,1)*diff(stand_rg_y) + stand_rg_y(1);
     
     % moving objects
+    mov_n_objects = 2;      % number of moving objects
     mov = [];               % moving object properties
-    mov.v = -5;             % (m/s) ego speed
+    mov.v = -ego.v*1.5*rand(mov_n_objects,1); % (m/s) moving object speed
     mov.t0 = ...            % random starting position
-        rand(1)*diff(road.x([1 end]))/mov.v;
-    mov.x = @(t,x_1)...     % (m) ego x position;
+        rand(mov_n_objects,1)*diff(road.x([1 end]))./mov.v;
+    mov.x = @(t,x_1)...     % (m) moving object x position;
         x_t(mov.v,t+mov.t0,x_1); 
     mov.y = @(x) road.y(x); % (m) moving object y position
-    mov.x_1 = 0;            % (m) moving object last x
+    mov.x_1 = zeros(mov_n_objects,1); % (m) moving object last x
     
     % ************ initialize simulation animation variables *************
     t = 0;                                      % (s) time
@@ -107,8 +108,8 @@ function sim_world()
         road_y, road_x,'w','linewidth',2);
     ego.m.static =  plot(interface.main_figure.ax_static,...
         ego_y,ego_x,'or','linewidth',2);
-    stand(1).m.static = plot(interface.main_figure.ax_static,...
-        stand(1).y, stand(1).x,'og','linewidth',2);
+    stand.m.static = plot(interface.main_figure.ax_static,...
+        stand.y, stand(1).x,'og','linewidth',2);
     mov.m.static =  plot(interface.main_figure.ax_static,...
         mov_y,mov_x,'ob','linewidth',2);
     
@@ -128,12 +129,11 @@ function sim_world()
         road_y,road_x,'w','linewidth',2);
     ego.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
         0,0,'or','linewidth',2);
-    for ii = 1 : stand_n_objects
-        stand.m(ii).dynamic = plot(interface.main_figure.ax_dynamic,...
-            s_y(ii),s_x(ii),'og','linewidth',2);
-    end
+    stand.m.dynamic = plot(interface.main_figure.ax_dynamic,...
+        s_y,s_x,'og','linewidth',2);
     mov.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
         mov_x,mov_y,'ob','linewidth',2);
+    
     % draw sensor FoV
     for ii = 1 : ego.sensor.n
         ego.sensor.m(ii) = patch(...
@@ -158,7 +158,7 @@ function sim_world()
         % update static axes
         set(ego.m.static,'xData',ego_y,'yData',ego_x)
         ego.x_1 = ego.x(t,0);
-        set(mov.m.static,'xData',mov_y,'yData',mov_x)
+        set(mov.m(1).static,'xData',mov_y,'yData',mov_x)
         mov.x_1 = mov.x(t,0);
         
         % ************************* dynamic axes *************************
@@ -179,9 +179,7 @@ function sim_world()
         
         % update dynamic axes
         set(road.m.dynamic,'xData',road_y,'yData',road_x)
-        for ii = 1 : stand_n_objects
-            set(stand.m(ii).dynamic,'xData',s_y(ii),'ydata',s_x(ii));
-        end
+        set(stand.m.dynamic,'xData',s_y,'ydata',s_x);
         set(mov.m.dynamic,'xData',mov_y,'yData',mov_x)
         
         % increment time
