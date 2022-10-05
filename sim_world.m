@@ -225,6 +225,12 @@ function sim_world()
                 o_x,o_y,e_x,e_y, th);
 
         % dynamic axes plots
+        for ii = 1 : ego.sensor.n
+            ego.sensor.m(ii) = patch(... % draw sensor FoV
+                ego.sensor.fov.draw.circ{ii}(:,1),...
+                ego.sensor.fov.draw.circ{ii}(:,2),...
+                'w','FaceAlpha',.3);
+        end
         road.m.dynamic = plot(interface.main_figure.ax_dynamic,...
             r_y,r_x,'w','linewidth',2);
         ego.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
@@ -236,13 +242,6 @@ function sim_world()
         onc.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
             o_x,o_y,'oc','linewidth',2);
 
-        % draw sensor FoV
-        for ii = 1 : ego.sensor.n
-            ego.sensor.m(ii) = patch(...
-                ego.sensor.fov.draw.circ{ii}(:,1),...
-                ego.sensor.fov.draw.circ{ii}(:,2),...
-                'w','FaceAlpha',.3);
-        end
     end
 
     % ***************************** interface *****************************
@@ -264,6 +263,7 @@ function sim_world()
         axis image
         hold on
         grid on
+        box on
         interface.main_figure.ax_dynamic = axes(...
             'position',[0.45 0.05 0.5 0.9],...
             'color',interface.colors.plot_background,...
@@ -272,6 +272,7 @@ function sim_world()
         axis image
         hold on
         grid on
+        box on
     end
     
     function output_sim_data(interface,road,ego,stand,mov,onc)
