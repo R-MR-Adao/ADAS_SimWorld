@@ -642,17 +642,22 @@ function sim_world()
         
         interface = evalin('base','sim_world_data.interface');
         
+        proceed = true;
         switch ui_get_user_code_Function(source)
             case 'Reconstruct 360'
                 fname = interface.files.reconstruct_360_space;
+            otherwise
+                proceed = false;
         end
         
-        % load code from file
-        init_user_code(interface, fname)
-        
-        % assign to base workspace
-        sim_world_data.interface = interface;
-        assignin('base','sim_world_data', sim_world_data)
+        if proceed
+            % load code from file
+            init_user_code(interface, fname)
+
+            % assign to base workspace
+            sim_world_data.interface = interface;
+            assignin('base','sim_world_data', sim_world_data)
+        end
     end
 
     function user_code_load_Callback(~,~)
