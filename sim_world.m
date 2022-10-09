@@ -346,6 +346,7 @@ function sim_world()
         interface.colors.panel_background = [1 1 1]*0.3;
         interface.colors.font             = [1 1 1]*1;
         interface.colors.code_background  = [1 1 1]*0.2;
+        interface.colors.code_font        = [0.5 1 0.5];
         interface.main_figure.f = figure(...
             'color',interface.colors.background,...
             'position',[1 31 1920 973],... %[450 80 1080 720]
@@ -390,16 +391,57 @@ function sim_world()
             'parent',interface.main_figure.panels.playback_main,...
             'units','normalized',...
             'style','edit',...
-            'string','Code area',...
-            'position', [0.01, 0.64, 0.6, 0.35],...
+            'string','Error: Failed to load file',...
+            'position', [0.01, 0.64, 0.6, 0.31],...
             'max',100,...
             'HorizontalAlignment','left',...
             'backgroundcolor',interface.colors.code_background,...
-            'foregroundcolor',interface.colors.font,...
+            'foregroundcolor',interface.colors.code_font,...
             'fontsize',11,...
             'fontname','monospaced');
         
-        init_user_code(interface);
+        % choose function dropdown menu
+        interface.main_figure.popups.user_code_selectFunction = uicontrol(...
+            'parent',interface.main_figure.panels.playback_main,...
+            'units','normalized',...
+            'style','popup',...
+            'string',{'Select function','Reconstruct 360'},...
+            'value',2,...
+            'position', [0.01, 0.96, 0.09, 0.03],...
+            'callback',@user_code_selectFunction_Callback);
+        init_ui_style(...
+            interface.main_figure.popups.user_code_selectFunction,interface)
+        
+        % filename config
+        interface.files.reconstruct_360_space = 'reconstruct_360_space.m';
+        
+        % load file to user code textbox
+        sim_world_data.interface = interface;
+        assignin('base','sim_world_data',sim_world_data) % store in base ws
+        user_code_selectFunction_Callback([],[]);
+        interface = evalin('base','sim_world_data.interface'); % recover from base ws
+        
+        % load file button
+        interface.main_figure.buttons.user_code_load = uicontrol(...
+            'parent',interface.main_figure.panels.playback_main,...
+            'units','normalized',...
+            'style','pushbutton',...
+            'string','Load',...
+            'position', [0.11, 0.96, 0.05, 0.03],...
+            'callback',@user_code_load_Callback);
+        init_ui_style(...
+            interface.main_figure.buttons.user_code_load,interface)
+        
+        % save file button
+        interface.main_figure.buttons.user_code_save = uicontrol(...
+            'parent',interface.main_figure.panels.playback_main,...
+            'units','normalized',...
+            'style','pushbutton',...
+            'string','Save',...
+            'position', [0.17, 0.96, 0.05, 0.03],...
+            'callback',@user_code_save_Callback);
+        init_ui_style(...
+            interface.main_figure.buttons.user_code_save,interface)
         
         % ************************ control panel ************************
         
@@ -454,8 +496,7 @@ function sim_world()
             'foregroundcolor',interface.colors.font)
     end
 
-    function init_user_code(interface)
-        fname = 'reconstruct_360_space.m';
+    function init_user_code(interface, fname)
         fID = fopen(fname);
         tline = fgetl(fID);
         fTxt = {};
@@ -565,6 +606,56 @@ function sim_world()
         
         % output data to base workspace
         output_sim_data(interface,road,ego,stand,mov,onc,t,dt,road_tail)
+    end
+    
+    function user_code_selectFunction_Callback(source,~)
+        
+        % load interface from base workspace
+        interface = evalin('base','sim_world_data.interface');
+        
+        % get selected function
+        if isempty(source),
+            source = interface.main_figure.popups.user_code_selectFunction;
+        end
+        funcs = get(source,'string');
+        val = get(source, 'value');
+        
+        switch funcs{val}
+            case 'Reconstruct 360'
+                fname = interface.files.reconstruct_360_space;
+        end
+        
+        % load code from file
+        init_user_code(interface, fname)
+        
+        % assign to base workspace
+        sim_world_data.interface = interface;
+        assignin('base','sim_world_data', sim_world_data)
+    end
+
+    function user_code_load_Callback(~,~)
+        %prompt user to select file
+        fname = uigetfile('*.m');
+        
+        % load interface from base workspace
+        interface = evalin('base','sim_world_data.interface');
+        
+        % get selected function
+        source = interface.main_figure.popups.user_code_selectFunction;
+        funcs = get(source,'string');
+        val = get(source, 'value');
+        
+        switch funcs{val}
+            case 'Reconstruct 360'
+                interface.files.reconstruct_360_space = fname;
+        end
+        
+        user_code_selectFunction_Callback(source,[])
+        
+    end
+
+    function user_code_save_Callback(~,~)
+        
     end
 
     function f_CloseRequestFcn(source,~)
