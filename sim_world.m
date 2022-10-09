@@ -1,49 +1,29 @@
 function sim_world()
     
     % initialize interface
-    interface = init_interface();
+    init_interface();
     
     % ******************* initialize object properties *******************
-    dt = 0.05;              % (s) time resolution
-    
-    % initialize road map
-    road = init_road();
-    
-    % motion equation for ego and moving objects
-    x_t = @(v,t,x_1) v.*t - road.x(end).*floor(x_1/road.x(end));
-    
-    % initialize ego
-    ego = init_ego(x_t, road);
-    
-    % initialize standing objects
-    stand_n_objects = 10;
-    stand = init_stand(stand_n_objects,road);
-    
-    % initialize moving and oncoming objects
-    mov_n_objects = 2;      % number of moving objects
-    mov = init_mov_objects(mov_n_objects, 1,x_t,ego,road); % moving obj
-    onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road); % oncoming obj
-    
-    % initialize simulation animation variables
-    [interface, road, ego, stand, mov, onc, road_tail] = ...
-            init_plots(interface, road, ego, stand, mov, onc);
-    %initialize simulation time
-    t = 0; % (s) time
-    while strcmp(get(interface.main_figure.f,'visible'),'on')
-        
-        % run simulation
-        [road, ego, stand, mov, onc, road_tail] = ...
-            simulation_run(t, road, ego, stand, mov, onc, road_tail);
-        
-        % increment time
-        t = t + dt;
-        pause(dt)
-        
-        % output data to base workspace
-        output_sim_data(interface,road,ego,stand,mov,onc)
-    end
+    controls_main_reset_Callback()
     
     % *********************** function definitions ***********************
+    
+    function master_run(interface,road,ego,stand,mov,onc,road_tail,dt,t)
+    
+        while get(interface.main_figure.buttons.controls_main_play,'value')
+
+            % run simulation
+            [road, ego, stand, mov, onc, road_tail] = ...
+                simulation_run(t, road, ego, stand, mov, onc, road_tail);
+
+            % increment time
+            t = t + dt;
+            pause(dt)
+
+            % output data to base workspace
+            output_sim_data(interface,road,ego,stand,mov,onc,t,dt,road_tail)
+        end
+    end
     
     function [road, ego, stand, mov, onc, road_tail] =...
             simulation_run(t, road, ego, stand, mov, onc, road_tail)
@@ -222,7 +202,7 @@ function sim_world()
         
     end
 
-    function [interface, road, ego, stand, mov, onc, road_tail] =...
+    function [interface, road, ego, stand, mov, onc] =...
             init_plots(interface, road, ego, stand, mov, onc)
         set(interface.main_figure.ax_static,... % dynamic axes limits
             'xlim', [road.x(1) road.x(end)],...
@@ -230,7 +210,6 @@ function sim_world()
         set(interface.main_figure.ax_dynamic,...% dynamic axes limits
             'xlim', [-1 1]*(ego.sensor.fov.range + 10),...
             'ylim', [-1 1]*(ego.sensor.fov.range + 10));
-        road_tail = road.x(round(end/2));       % (m) road tail behind ego
 
         % initialze common variables
         r_x = road.x;           % road x array
@@ -310,7 +289,8 @@ function sim_world()
             m_x,m_y,'o','color',[1 0.5 0],'linewidth',2);
         onc.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
             o_x,o_y,'oc','linewidth',2);
-
+        
+        interface.main_figure.ax_init = true;
     end
 
     % ***************************** interface *****************************
@@ -350,11 +330,21 @@ function sim_world()
         end
     end
     
-    function interface = init_interface()
+    function init_interface()
+        % try to close already opened figure, if existent
+        try
+            f = evalin('base','sim_world_data.interface.main_figure.f');
+            close(f)
+        catch
+            % nothign
+        end
+        
         interface = [];
-        interface.colors.background      = [1 1 1]*0.25;
-        interface.colors.plot_background = [1 1 1]*0.4;
-        interface.colors.plot_lines      = [1 1 1]*1;
+        interface.colors.background       = [1 1 1]*0.25;
+        interface.colors.plot_background  = [1 1 1]*0.4;
+        interface.colors.plot_lines       = [1 1 1]*1;
+        interface.colors.panel_background = [1 1 1]*0.3;
+        interface.colors.font             = [1 1 1]*1;
         interface.main_figure.f = figure(...
             'color',interface.colors.background,...
             'position',[1 31 1920 973],... %[450 80 1080 720]
@@ -362,10 +352,10 @@ function sim_world()
         
         % initialize axes
         interface.main_figure.ax_static = axes(...
-            'position',[0.55 0.73 0.45 0.21]);
+            'position',[0.57 0.73 0.45 0.21]);
         init_axes_style(interface.main_figure.ax_static,interface)
         interface.main_figure.ax_dynamic = axes(...
-            'position',[0.55 0.05 0.45 0.63],'xdir','reverse');
+            'position',[0.57 0.05 0.45 0.63],'xdir','reverse');
         init_axes_style(interface.main_figure.ax_dynamic,interface)
         % draw sensor axes
         w = 0.21;       % axes width
@@ -377,11 +367,45 @@ function sim_world()
         ttl = {'FL','FR','RL','RR'};
         for ii = 1 : 4
             interface.main_figure.ax_sensor(ii) = axes(...
-                'position',[0.15+xy_off(ii,1) 0.05+xy_off(ii,2) w h],...
+                'position',[0.17+xy_off(ii,1) 0.05+xy_off(ii,2) w h],...
                 'xdir','reverse');
             init_axes_style(interface.main_figure.ax_sensor(ii),interface)
             title(ttl{ii},'color','w')
         end
+        
+        % Control panel
+        interface.main_figure.panels.controls_main = uipanel(...
+            'parent',interface.main_figure.f,...
+            'position',[0.01,0.03,0.13,0.94],...
+            'title','Main controls');
+        init_ui_style(interface.main_figure.panels.controls_main,interface)
+        
+        % Start / pause / resume button
+        interface.main_figure.buttons.controls_main_play = uicontrol(...
+            'parent',interface.main_figure.panels.controls_main,...
+            'units','normalized',...
+            'style','toggle',...
+            'string','Start',...
+            'position', [0.05, 0.9, 0.4, 0.035],...
+            'callback',@controls_main_play_Callback);
+        init_ui_style(...
+            interface.main_figure.buttons.controls_main_play,interface)
+        
+        % Reset button
+        interface.main_figure.buttons.controls_main_reset = uicontrol(...
+            'parent',interface.main_figure.panels.controls_main,...
+            'units','normalized',...
+            'style','pushbutton',...
+            'string','Reset',...
+            'position', [0.55, 0.9, 0.4, 0.035],...
+            'callback',@controls_main_reset_Callback);
+        init_ui_style(...
+            interface.main_figure.buttons.controls_main_reset,interface)
+        
+        % assign interface to base workspace
+        sim_world_data.interface = interface;
+        assignin('base','sim_world_data',sim_world_data)
+        
     end
 
     function init_axes_style(ax, interface)
@@ -395,14 +419,109 @@ function sim_world()
         box on
     end
 
-    function output_sim_data(interface,road,ego,stand,mov,onc)
-        sim_world_data.road = road;
-        sim_world_data.ego = ego;
-        sim_world_data.stand = stand;
-        sim_world_data.mov = mov;
-        sim_world_data.onc = onc;
-        sim_world_data.interface = interface;
+    function init_ui_style(h, interface)
+        set(h,...
+            'backgroundcolor',interface.colors.panel_background,...
+            'foregroundcolor',interface.colors.font)
+    end
+
+    function reset_plots(interface)
+        cla(interface.main_figure.ax_static);
+        init_axes_style(interface.main_figure.ax_static, interface)
+        cla(interface.main_figure.ax_dynamic);
+        init_axes_style(interface.main_figure.ax_dynamic, interface)
+        for ii = 1 : length(interface.main_figure.ax_sensor)
+            cla(interface.main_figure.ax_sensor(ii));
+            init_axes_style(interface.main_figure.ax_sensor(ii), interface)
+        end
+    end
+
+    function output_sim_data(...
+            interface,road,ego,stand,mov,onc,t,dt,road_tail)
+        sim_world_data.road          = road;
+        sim_world_data.ego           = ego;
+        sim_world_data.stand         = stand;
+        sim_world_data.mov           = mov;
+        sim_world_data.onc           = onc;
+        sim_world_data.interface     = interface;
+        sim_world_data.sim.t         = t;
+        sim_world_data.sim.dt        = dt;
+        sim_world_data.sim.road_tail = road_tail;
         assignin('base','sim_world_data',sim_world_data)
+    end
+
+    function [interface,road,ego,stand,mov,onc,t,dt,road_tail] =...
+            read_sim_data()
+        sim_world_data = evalin('base','sim_world_data');
+        road      = sim_world_data.road;
+        ego       = sim_world_data.ego;
+        stand     = sim_world_data.stand;
+        mov       = sim_world_data.mov;
+        onc       = sim_world_data.onc;
+        interface = sim_world_data.interface;
+        t         = sim_world_data.sim.t;
+        dt        = sim_world_data.sim.dt;
+        road_tail = sim_world_data.sim.road_tail;
+    end
+
+% ************************** interface callbacks **************************
+
+    function controls_main_play_Callback(source,~)
+        switch get(source,'value')
+            case 1
+                set(source,'string','Pause');
+            case 0
+                set(source,'string','Resume');
+                
+        end
+        [interface,road,ego,stand,mov,onc,t,dt,road_tail] =...
+            read_sim_data();
+        master_run(interface,road,ego,stand,mov,onc,road_tail,dt,t);
+    end
+
+    function controls_main_reset_Callback(~,~)
+        % get interface from base workspace
+        interface = evalin('base','sim_world_data.interface');
+        
+        % stop running simulation
+        set(interface.main_figure.buttons.controls_main_play,...
+            'value',0,...
+            'string','Start')
+        
+        % initialize simulation time
+        dt = 0.05;  % (s) time resolution
+        t = 0;      % (s) time
+    
+        % initialize road map
+        road = init_road();
+        road_tail = road.x(round(end/2));	% (m) road tail behind ego
+
+        % motion equation for ego and moving objects
+        x_t = @(v,t,x_1) v.*t - road.x(end).*floor(x_1/road.x(end));
+
+        % initialize ego
+        ego = init_ego(x_t, road);
+
+        % initialize standing objects
+        stand_n_objects = 10;
+        stand = init_stand(stand_n_objects,road);
+
+        % initialize moving and oncoming objects
+        mov_n_objects = 2;      % number of moving objects
+        mov = init_mov_objects(mov_n_objects, 1,x_t,ego,road);% moving obj
+        onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road);% oncoming obj
+        
+        % reset plots if already existent
+        if isfield(interface.main_figure,'ax_init') % not yet initialized
+            reset_plots(interface);
+        end
+        
+        % initialize simulation animation variables
+        [interface, road, ego, stand, mov, onc] = ...
+                    init_plots(interface, road, ego, stand, mov, onc);
+        
+        % output data to base workspace
+        output_sim_data(interface,road,ego,stand,mov,onc,t,dt,road_tail)
     end
 
     function f_CloseRequestFcn(source,~)
