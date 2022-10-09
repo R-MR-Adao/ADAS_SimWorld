@@ -497,16 +497,31 @@ function sim_world()
     end
 
     function init_user_code(interface, fname)
-        fID = fopen(fname);
-        tline = fgetl(fID);
-        fTxt = {};
+        fID = fopen(fname);         % file ID
+        tline = fgetl(fID);         % first line
+        fTxt = {};                  % fle tezt
         while ischar(tline)
             fTxt{end+1} = tline;
             tline = fgetl(fID);
         end
         fclose(fID);
+        
+        % assign text to user code textbox
         set(interface.main_figure.edits.user_code,...
             'string', fTxt)
+    end
+
+    function save_user_code(interface, fname)
+        fID = fopen(fname,'w');         % file ID
+        eTxt = get(interface.main_figure.edits.user_code,'string');
+        
+        fTxt = '';
+        
+        for ii = 1 : length(eTxt)
+           fprintf(fID,'%s\n', eTxt{ii});
+        end
+
+        fclose(fID);
     end
 
     function reset_plots(interface)
@@ -563,6 +578,21 @@ function sim_world()
         master_run(interface,road,ego,stand,mov,onc,road_tail,dt,t);
     end
 
+    function func = ui_get_user_code_Function(source)
+        
+        % load interface from base workspace
+        interface = evalin('base','sim_world_data.interface');
+        
+        % get selected function
+        if isempty(source),
+            source = interface.main_figure.popups.user_code_selectFunction;
+        end
+        funcs = get(source,'string');
+        val = get(source, 'value');
+        
+        func = funcs{val};
+    end
+
     function controls_main_reset_Callback(~,~)
         % get interface from base workspace
         interface = evalin('base','sim_world_data.interface');
@@ -610,17 +640,9 @@ function sim_world()
     
     function user_code_selectFunction_Callback(source,~)
         
-        % load interface from base workspace
         interface = evalin('base','sim_world_data.interface');
         
-        % get selected function
-        if isempty(source),
-            source = interface.main_figure.popups.user_code_selectFunction;
-        end
-        funcs = get(source,'string');
-        val = get(source, 'value');
-        
-        switch funcs{val}
+        switch ui_get_user_code_Function(source)
             case 'Reconstruct 360'
                 fname = interface.files.reconstruct_360_space;
         end
@@ -635,27 +657,51 @@ function sim_world()
 
     function user_code_load_Callback(~,~)
         %prompt user to select file
-        fname = uigetfile('*.m');
+        [fname, pname] = uigetfile('*.m');
         
-        % load interface from base workspace
-        interface = evalin('base','sim_world_data.interface');
-        
-        % get selected function
-        source = interface.main_figure.popups.user_code_selectFunction;
-        funcs = get(source,'string');
-        val = get(source, 'value');
-        
-        switch funcs{val}
-            case 'Reconstruct 360'
-                interface.files.reconstruct_360_space = fname;
+        if fname
+            % join path to filename
+            fname = [pname '\' fname];
+            
+            % load interface from base workspace
+            interface = evalin('base','sim_world_data.interface');
+
+            switch ui_get_user_code_Function([])
+                case 'Reconstruct 360'
+                    interface.files.reconstruct_360_space = fname;
+            end
+
+            % update interface in base workspace
+            sim_world_data.interface = interface;
+            assignin('base','sim_world_data',sim_world_data)
+
+            user_code_selectFunction_Callback([],[])
         end
-        
-        user_code_selectFunction_Callback(source,[])
         
     end
 
     function user_code_save_Callback(~,~)
+        %prompt user to select file
+        [fname, pname] = uiputfile('*.m');
         
+        if fname
+            % join path to filename
+            fname = [pname '\' fname];
+            
+            % load interface from base workspace
+            interface = evalin('base','sim_world_data.interface');
+
+            switch ui_get_user_code_Function([])
+                case 'Reconstruct 360'
+                    interface.files.reconstruct_360_space = fname;
+            end
+            
+            save_user_code(interface, fname)
+
+            % update interface in base workspace
+            sim_world_data.interface = interface;
+            assignin('base','sim_world_data',sim_world_data)
+        end
     end
 
     function f_CloseRequestFcn(source,~)
