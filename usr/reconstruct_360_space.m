@@ -8,9 +8,31 @@ function [stand,mov,onc] = reconstruct_360_space(sensor)
     
     % access sensor detections in base workspace
     assignin('base','sensor',sensor);
+
+    % rotation matrix (degrees)
+    rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);... 
+                               sind(t)  cosd(t)];
     
     %       [x,y]
-    stand = [0,0];
-    mov =   [0,0];
-    onc =   [0,0];
+    stand = [   ];
+    mov =   [   ];
+    onc =   [   ];
+
+    for ii = 1 : sensor.n
+        if sensor.active(ii)
+            theta = sensor.theta(ii);
+            
+            stand_x = sensor.data(ii).stand(:,1);
+            stand_y = sensor.data(ii).stand(:,2);
+            stand = cat(1,stand,rd(stand_x,stand_y,theta));
+            
+            mov_x = sensor.data(ii).mov(:,1);
+            mov_y = sensor.data(ii).mov(:,2);
+            mov = cat(1,mov,rd(mov_x,mov_y,theta));
+
+            onc_x = sensor.data(ii).onc(:,1);
+            onc_y = sensor.data(ii).onc(:,2);
+            onc = cat(1,onc,rd(onc_x,onc_y,theta));
+        end
+    end
 end

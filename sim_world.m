@@ -16,7 +16,7 @@ function sim_world()
             [road, ego, stand, mov, onc, road_tail] = ...
                 simulation_run(t, road, ego, stand, mov, onc, road_tail);
             
-            % fill inputs for 
+            % fill inputs for user reconstruction
             sensor_f = fill_input_reconstruct_360_space(...
                 interface,ego.sensor);
             
@@ -114,14 +114,16 @@ function sim_world()
         for ii = 1 : sensor.n
             sensor_switch = [sensor_path sensor.key{ii}];
             if get(eval(sensor_switch),'value')
+                sensor_f.active(ii) = true;
                 sensor_f.data(ii).stand = ...   % standing objects
-                    sensor.data(ii).stand(~isnan(sensor.data(ii).stand)); 
+                    sensor.data(ii).stand(~isnan(sensor.data(ii).stand(:,1)),:); 
                 sensor_f.data(ii).mov = ...     % moving objects
-                    sensor.data(ii).mov(~isnan(sensor.data(ii).mov));
+                    sensor.data(ii).mov(~isnan(sensor.data(ii).mov(:,1)),:);
                 sensor_f.data(ii).onc = ....    % oncoming objects
-                    sensor.data(ii).onc(~isnan(sensor.data(ii).onc));
+                    sensor.data(ii).onc(~isnan(sensor.data(ii).onc(:,1)),:);
                 set(sensor.m(ii),'visible','on')
             else
+                sensor_f.active(ii) = false;
                 set(sensor.m(ii),'visible','off')
             end
         end
@@ -138,7 +140,12 @@ function sim_world()
                 get(interface.main_figure.checkboxes.controls_main_showSensor_RL,'value'),...
                 get(interface.main_figure.checkboxes.controls_main_showSensor_RR,'value')])
             set(stand.m.dynamic_user,...
-                'xdata',stand_u(:,1),'ydata',stand_u(:,2),'visible','on')
+                'xdata',stand_u(:,2),'ydata',stand_u(:,1),'visible','on')
+            set(mov.m.dynamic_user,...
+                'xdata',mov_u(:,2),'ydata',mov_u(:,1),'visible','on')
+            set(onc.m.dynamic_user,...
+                'xdata',onc_u(:,2),'ydata',onc_u(:,1),'visible','on')
+
         end
     end
 
@@ -347,6 +354,10 @@ function sim_world()
         %   user-detected objects
         stand.m.dynamic_user = plot(interface.main_figure.ax_dynamic,...
             s_y,s_x,'sg','visible','off','markersize',15);
+        mov.m.dynamic_user = plot(interface.main_figure.ax_dynamic,...
+            m_y,m_x,'s','color',[1 0.5 0],'visible','off','markersize',15);
+        onc.m.dynamic_user = plot(interface.main_figure.ax_dynamic,...
+            o_y,o_x,'sc','visible','off','markersize',15);
         
         interface.main_figure.ax_init = true;
     end
@@ -429,7 +440,7 @@ function sim_world()
         init_axes_style(interface.main_figure.ax_dynamic,interface)
         % draw sensor axes
         w = 0.29;       % axes width
-        h = 0.25;        % axes height
+        h = 0.21;        % axes height
         off_x = 0.02;   % x offset
         off_y = 0.05;   % y offset
         xy_off = [0       w+off_x 0 w+off_x;...
@@ -450,7 +461,7 @@ function sim_world()
             'units','normalized',...
             'style','edit',...
             'string','Error: Failed to load file',...
-            'position', [0.01, 0.64, 0.6, 0.31],...
+            'position', [0.01, 0.55, 0.6, 0.40],...
             'max',100,...
             'HorizontalAlignment','left',...
             'backgroundcolor',interface.colors.code_background,...
