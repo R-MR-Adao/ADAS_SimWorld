@@ -6,4 +6,9 @@ function [stand,mov,onc] = reconstruct_360_space(sensor)
     %          standing, moving and oncoming detections in the
     %          reconstructed space
     
+    assignin('base','sensor',sensor);
+    
+    stand = 0;
+    mov = 0;
+    onc = 0;
 end

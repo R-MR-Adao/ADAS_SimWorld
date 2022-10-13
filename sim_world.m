@@ -15,6 +15,12 @@ function sim_world()
             % run simulation
             [road, ego, stand, mov, onc, road_tail] = ...
                 simulation_run(t, road, ego, stand, mov, onc, road_tail);
+            
+            % fill inputs for 
+            sensor_f = fill_input_reconstruct_360_space(ego.sensor);
+            
+            % recover 360 degree coordinate space
+            [m_stand,m_mov,m_onc] = reconstruct_360_space(sensor_f);
 
             % increment time
             t = t + dt;
@@ -86,6 +92,25 @@ function sim_world()
         % update dynamic axes
         update_plot_dynamic(road,road_x,road_y,ego,...
             stand,stand_x,stand_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
+    end
+
+    function sensor_f = fill_input_reconstruct_360_space(sensor)
+        % copy selected data from the sensor
+        sensor_f.n = sensor.n;                          % number of sensors
+        sensor_f.fov.range = sensor.fov.range;          % fov dist range
+        sensor_f.fov.theta = sensor.fov.theta;          % fov angular range
+        sensor_f.theta = sensor.theta;                  % fov orientation
+        sensor_f.pos = sensor.key;                      % sensor position
+        
+        % copy detected object data
+        for ii = 1 : sensor.n
+            sensor_f.data(ii).stand = ...   % standing objects
+                sensor.data(ii).stand(~isnan(sensor.data(ii).stand)); 
+            sensor_f.data(ii).mov = ...     % moving objects
+                sensor.data(ii).mov(~isnan(sensor.data(ii).mov));
+            sensor_f.data(ii).onc = ....    % oncoming objects
+                sensor.data(ii).onc(~isnan(sensor.data(ii).onc));
+        end
     end
 
     function data = sensor_data_find(sensor,ii,data_x,data_y)
@@ -413,7 +438,7 @@ function sim_world()
             interface.main_figure.popups.user_code_selectFunction,interface)
         
         % filename config
-        interface.files.reconstruct_360_space = 'reconstruct_360_space.m';
+        interface.files.reconstruct_360_space = '';
         
         % load file to user code textbox
         sim_world_data.interface = interface;
@@ -438,10 +463,22 @@ function sim_world()
             'units','normalized',...
             'style','pushbutton',...
             'string','Save',...
+            'enable','off',...
             'position', [0.17, 0.96, 0.05, 0.03],...
             'callback',@user_code_save_Callback);
         init_ui_style(...
             interface.main_figure.buttons.user_code_save,interface)
+        
+        % save as file button
+        interface.main_figure.buttons.user_code_saveas = uicontrol(...
+            'parent',interface.main_figure.panels.playback_main,...
+            'units','normalized',...
+            'style','pushbutton',...
+            'string','Save as',...
+            'position', [0.23, 0.96, 0.05, 0.03],...
+            'callback',@user_code_saveas_Callback);
+        init_ui_style(...
+            interface.main_figure.buttons.user_code_saveas,interface)
         
         % ************************ control panel ************************
         
@@ -640,7 +677,9 @@ function sim_world()
     
     function user_code_selectFunction_Callback(source,~)
         
-        interface = evalin('base','sim_world_data.interface');
+        % load interface from base workspace
+        sim_world_data = evalin('base','sim_world_data');
+        interface = sim_world_data.interface;
         
         proceed = true;
         switch ui_get_user_code_Function(source)
@@ -669,7 +708,8 @@ function sim_world()
             fname = [pname '\' fname];
             
             % load interface from base workspace
-            interface = evalin('base','sim_world_data.interface');
+            sim_world_data = evalin('base','sim_world_data');
+            interface = sim_world_data.interface;
 
             switch ui_get_user_code_Function([])
                 case 'Reconstruct 360'
@@ -677,6 +717,7 @@ function sim_world()
             end
 
             % update interface in base workspace
+            
             sim_world_data.interface = interface;
             assignin('base','sim_world_data',sim_world_data)
 
@@ -686,6 +727,16 @@ function sim_world()
     end
 
     function user_code_save_Callback(~,~)
+        
+        % load interface from base workspace
+        interface = evalin('base','sim_world_data.interface');
+        fname = interface.files.reconstruct_360_space;
+        
+        % save file
+        save_user_code(interface, fname)
+    end
+
+    function user_code_saveas_Callback(~,~)
         %prompt user to select file
         [fname, pname] = uiputfile('*.m');
         
@@ -694,14 +745,18 @@ function sim_world()
             fname = [pname '\' fname];
             
             % load interface from base workspace
-            interface = evalin('base','sim_world_data.interface');
+            sim_world_data = evalin('base','sim_world_data');
+            interface = sim_world_data.interface;
 
             switch ui_get_user_code_Function([])
                 case 'Reconstruct 360'
                     interface.files.reconstruct_360_space = fname;
             end
             
+            % save file
             save_user_code(interface, fname)
+            
+            set(interface.main_figure.buttons.user_code_save,'enable','on');
 
             % update interface in base workspace
             sim_world_data.interface = interface;
