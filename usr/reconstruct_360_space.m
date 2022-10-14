@@ -11,7 +11,7 @@ function [stand,mov,onc] = reconstruct_360_space(sensor)
 
     % rotation matrix (degrees)
     rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);... 
-                               sind(t)  cosd(t)];
+                               sind(t)  cosd(t)]';
     
     %       [x,y]
     stand = [   ];
