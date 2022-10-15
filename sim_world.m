@@ -14,7 +14,7 @@ function sim_world()
 
             % run simulation
             [road, ego, stand, mov, onc, road_tail] = ...
-                simulation_run(t, road, ego, stand, mov, onc, road_tail);
+                simulation_run(t, dt, road, ego, stand, mov, onc, road_tail);
             
             % fill inputs for user reconstruction
             sensor_f = fill_input_reconstruct_360_space(...
@@ -36,20 +36,20 @@ function sim_world()
     end
     
     function [road, ego, stand, mov, onc, road_tail] =...
-            simulation_run(t, road, ego, stand, mov, onc, road_tail)
+            simulation_run(t, dt, road, ego, stand, mov, onc, road_tail)
         
         % ****************** update data for static plot ******************
         ego_x =  ego.x(t,ego.x_1);
         ego_y =  ego.y(ego_x);
         ego.x_1 = ego.x(t,0);
         
-        mov_x =  mov.x(t,mov.x_1);
-        mov_y =  mov.y(mov_x);
-        mov.x_1 = mov.x(t,0);
+        mov_x =  mov.x(t,dt,mov.x_1);
+        mov_y =  mov.y(t,dt,mov.x_1);
+        mov.x_1 = mov.x(t,dt,0);
         
-        onc_x =  onc.x(t,onc.x_1);
-        onc_y =  onc.y(onc_x);
-        onc.x_1 = onc.x(t,0);
+        onc_x =  onc.x(t,dt,onc.x_1);
+        onc_y =  onc.y(t,dt,onc.x_1);
+        onc.x_1 = onc.x(t,dt,0);
         
         road_x = road.x + ego.x_1-road_tail;
         road_y = road.y(road_x);       
@@ -174,11 +174,20 @@ function sim_world()
     end
     
     function obj = init_road()
-        obj = [];              % road properties
         obj.T = 80;            % (m) road periodicity
         obj.x = 0:0.2:240;     % (m) road x array
         obj.y = @(x) ...       % (m) road y array
-            obj.T/2*sin(2*pi/obj.T*x).*cos(2*pi/obj.T/3*x);
+            obj.T/3*sin(2*pi/obj.T*x).*cos(2*pi/obj.T/3*x);
+    end
+
+    function obj = init_mov_lane(road, off)
+        obj.T = road.T;
+        obj.ux =  @(x,x1) -(road.y(x1) - road.y(x));
+        obj.uy =  @(x,x1) (x1-x);
+        obj.unx = @(x,x1) (obj.ux(x,x1).*off)./(sqrt(obj.ux(x,x1).^2 + obj.uy(x,x1).^2));
+        obj.uny = @(x,x1) (obj.uy(x,x1).*off)./(sqrt(obj.ux(x,x1).^2 + obj.uy(x,x1).^2));
+        obj.x =   @(x,x1)      x    + obj.unx(x,x1);
+        obj.y =   @(x,x1) road.y(x) + obj.uny(x,x1);
     end
     
     function obj = init_ego(x_t, road)
@@ -228,14 +237,17 @@ function sim_world()
     
     function obj = init_mov_objects(n, direction, x_t, ego, road)        
         % moving objects
-        obj = [];               % moving object properties
-        obj.v = direction*ego.v*1.5*rand(n,1); % (m/s) moving object speed
+        obj.v = direction*ego.v*(rand(n,1)+0.5); % (m/s) moving object speed
         obj.t0 = ...            % random starting position
             rand(n,1)*diff(road.x([1 end]))./obj.v;
-        obj.x = @(t,x_1)...     % (m) moving object x position;
+        obj.off = -2.5*(1:n)';
+        obj.lane = init_mov_lane(road, obj.off);
+        obj.x_t = @(t,x_1)...     % (m) moving object x position;
             x_t(obj.v,t+obj.t0,x_1); 
-        obj.y = @(x) road.y(x); % (m) moving object y position
+        obj.x = @(t,dt,x_1) obj.lane.x(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); % (m) moving object y position
+        obj.y = @(t,dt,x_1) obj.lane.y(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); % (m) moving object y position
         obj.x_1 = zeros(n,1); % (m) moving object last x
+        
     end
     
     function [x,y,theta] = dynamic_transform_coordinates(...
@@ -287,11 +299,11 @@ function sim_world()
         e_x = ego.x(0,ego.x_1); % ego x position
         e_y = ego.y(e_x);       % ego y position
 
-        m_x = mov.x(0,mov.x_1); % moving obect x position
-        m_y = mov.y(m_x);       % moving object y position
+        m_x = mov.x(0,0.05,mov.x_1); % moving obect x position
+        m_y = mov.y(0,0.05,mov.x_1);       % moving object y position
 
-        o_x = onc.x(0,onc.x_1); % oncoming object x position
-        o_y = onc.y(o_x);       % oncoming object y position
+        o_x = onc.x(0,0.05,mov.x_1); % oncoming object x position
+        o_y = onc.y(0,0.05,mov.x_1);       % oncoming object y position
 
         % static axes plots:
         road.m.static = plot(interface.main_figure.ax_static,...
