@@ -8,13 +8,17 @@ function sim_world()
     
     % *********************** function definitions ***********************
     
-    function master_run(interface,road,lane,ego,stand,mov,onc,road_tail,dt,t)
-    
-        while get(interface.main_figure.buttons.controls_main_play,'value')
+    function master_run(interface,road,lane,road_edge,ego,stand,mov,onc,road_tail,dt,t)
+        
+        override = true;    % override bool to implement do while
+        
+        while (get(interface.main_figure.buttons.controls_main_play,'value') ...
+                || override)
 
             % run simulation
-            [road,lane,ego,stand,mov,onc,road_tail] = ...
-                simulation_run(t,dt,road,lane,ego,stand,mov,onc,road_tail);
+            [road,lane,road_edge,ego,stand,mov,onc,road_tail] = ...
+                simulation_run(t,dt,road,lane,road_edge,...
+                ego,stand,mov,onc,road_tail);
             
             % fill inputs for user reconstruction
             sensor_f = fill_input_reconstruct_360_space(...
@@ -32,12 +36,14 @@ function sim_world()
 
             % output data to base workspace
             output_sim_data(...
-                interface,road,lane,ego,stand,mov,onc,t,dt,road_tail)
+                interface,road,lane,road_edge,ego,stand,mov,onc,t,dt,road_tail)
+            
+            override = false;
         end
     end
     
-    function [road,lane,ego,stand,mov,onc,road_tail] =...
-            simulation_run(t,dt,road,lane,ego,stand,mov,onc,road_tail)
+    function [road,lane,road_edge,ego,stand,mov,onc,road_tail] =...
+            simulation_run(t,dt,road,lane,road_edge,ego,stand,mov,onc,road_tail)
         
         % ****************** update data for static plot ******************
         ego_x =  ego.x(t,ego.x_1);
@@ -58,6 +64,9 @@ function sim_world()
         lane_x = lane.x(road_x);
         lane_y = lane.y(road_x);
         
+        road_edge_x = road_edge.x(road_x);
+        road_edge_y = road_edge.y(road_x);
+        
         % update static axis
         update_plot_static(ego,ego_x,ego_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
         
@@ -70,6 +79,10 @@ function sim_world()
         % transform lane coordinates
         [lane_x,lane_y] = dynamic_transform_coordinates(...
             lane_x,lane_y,ego.x_1,ego.y(ego.x_1), theta);
+        
+        % transform road edge coordinates
+        [road_edge_x,road_edge_y] = dynamic_transform_coordinates(...
+            road_edge_x,road_edge_y,ego.x_1,ego.y(ego.x_1), theta);
         
         % transform standing object coordinates
         s_shift = road.x(end)*((ego_x-stand.x) > road.x(round(end/2))) +... 
@@ -102,8 +115,10 @@ function sim_world()
         end
                
         % update dynamic axes
-        update_plot_dynamic(road,road_x,road_y,lane,lane_x,lane_y,ego,...
-            stand,stand_x,stand_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
+        update_plot_dynamic(road,road_x,road_y,...
+            lane,lane_x,lane_y,...
+            road_edge,road_edge_x,road_edge_y,...
+            ego,stand,stand_x,stand_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
     end
 
     function sensor_f = fill_input_reconstruct_360_space(interface,sensor)
@@ -188,25 +203,51 @@ function sim_world()
             obj.T/3*sin(2*pi/obj.T*x).*cos(2*pi/obj.T/3*x);
     end
 
-    function obj = init_lane(n,road)
-        obj.off = 1.25;
-        obj.ux =  @(x) -diff(road.y(x));
-        obj.uy =  @(x) diff(x);
-        obj.unx = @(x,off) (obj.ux(x).*off)./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
-        obj.uny = @(x,off) (obj.uy(x).*off)./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
-        obj.x_ =  @(x,off)      x    + [obj.unx(x(1:2),off) obj.unx(x,off)];
-        obj.y_ =  @(x,off) road.y(x) + [obj.uny(x(1:2),off) obj.uny(x,off)];
-        obj.x =   @(x) [obj.x_(x,obj.off) nan obj.x_(x,-obj.off)];
-        obj.y =   @(x) [obj.y_(x,obj.off) nan obj.y_(x,-obj.off)];
+    function obj = init_mov_lane(road, off)
+        
+        % offset a point by off (objects)
+        obj.ux =  @(x,x1) -(road.y(x1) - road.y(x)); % x derivative
+        obj.uy =  @(x,x1) (x1-x);                % y derivative
+        obj.unx = @(x,x1)...                     % perpendiculate vector x
+            (obj.ux(x,x1).*off)./(sqrt(obj.ux(x,x1).^2 + obj.uy(x,x1).^2));
+        obj.uny = @(x,x1)...                     % perpendiculate vector y
+            (obj.uy(x,x1).*off)./(sqrt(obj.ux(x,x1).^2 + obj.uy(x,x1).^2));
+        obj.x =   @(x,x1)      x    + obj.unx(x,x1); % shifted point x
+        obj.y =   @(x,x1) road.y(x) + obj.uny(x,x1); % shifted point y
     end
 
-    function obj = init_mov_lane(road, off)
-        obj.ux =  @(x,x1) -(road.y(x1) - road.y(x));
-        obj.uy =  @(x,x1) (x1-x);
-        obj.unx = @(x,x1) (obj.ux(x,x1).*off)./(sqrt(obj.ux(x,x1).^2 + obj.uy(x,x1).^2));
-        obj.uny = @(x,x1) (obj.uy(x,x1).*off)./(sqrt(obj.ux(x,x1).^2 + obj.uy(x,x1).^2));
-        obj.x =   @(x,x1)      x    + obj.unx(x,x1);
-        obj.y =   @(x,x1) road.y(x) + obj.uny(x,x1);
+    function obj = init_lane(road,off)
+        
+        % offset an array by off (lanes)
+        obj.off = off;                   % fixed offset
+        obj.ux =  @(x) -diff(road.y(x)); % x derivative
+        obj.uy =  @(x) diff(x);          % y derivative
+        obj.unx = @(x,off)...            % perpendiculate vector x
+            (obj.ux(x).*off)./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
+        obj.uny = @(x,off)...            % perpendiculate vector y
+            (obj.uy(x).*off)./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
+        obj.x =   @(x)...                % shifted vector x
+            x + [obj.unx(x(1:2),obj.off) obj.unx(x,obj.off)];
+        obj.y =   @(x)...                % shifted vector y
+            road.y(x) + [obj.uny(x(1:2),obj.off) obj.uny(x,obj.off)];
+    end
+
+    function [lane,road_edges] = init_lanes(road)
+        
+        off_0 = 1.25;   % car half-width
+
+        edge_c = init_lane(road,off_0);     % road center line
+        edge_l = init_lane(road,5*off_0);   % road left line
+        edge_r = init_lane(road,-3*off_0);  % road right line
+        % concatenate lines
+        road_edges.x = @(x) [edge_l.x(x) nan edge_c.x(x) nan edge_r.x(x)];
+        road_edges.y = @(x) [edge_l.y(x) nan edge_c.y(x) nan edge_r.y(x)];
+        
+        lane_l = init_lane(road,3*off_0);   % lane left line
+        lane_r = init_lane(road,-off_0);    % lane right line
+        % concatenate lines
+        lane.x = @(x) [lane_l.x(x) nan lane_r.x(x)];
+        lane.y = @(x) [lane_l.y(x) nan lane_r.y(x)];
     end
     
     function obj = init_ego(x_t, road)
@@ -297,8 +338,8 @@ function sim_world()
         
     end
 
-    function [interface, road, lane, ego, stand, mov, onc] =...
-            init_plots(interface, road, lane, ego, stand, mov, onc)
+    function [interface,road,lane,road_edge,ego,stand,mov,onc] =...
+            init_plots(interface,road,lane,road_edge,ego,stand,mov,onc)
         set(interface.main_figure.ax_static,... % dynamic axes limits
             'xlim', [road.x(1) road.x(end)],...
             'ylim', [-1 1]*road.T/2);
@@ -319,6 +360,8 @@ function sim_world()
         r_y = road.y(r_x);      % road y array
         l_x = lane.x(r_x);      % lane x array
         l_y = lane.y(r_x);      % lane y array
+        re_x = road_edge.x(r_x);      % road edge x array
+        re_y = road_edge.y(r_x);      % road edge y array
 
         e_x = ego.x(0,ego.x_1); % ego x position
         e_y = ego.y(e_x);       % ego y position
@@ -334,6 +377,8 @@ function sim_world()
             r_x, r_y,'w','linewidth',2,'visible','off');
         lane.m.static = plot(interface.main_figure.ax_static,...
             l_x, l_y,'--w','linewidth',2);
+        road_egde.m.static = plot(interface.main_figure.ax_static,...
+            re_x, re_y,'w','linewidth',2);
         ego.m.static =  plot(interface.main_figure.ax_static,...
             e_x,e_y,'or','linewidth',2);
         stand.m.static = plot(interface.main_figure.ax_static,...
@@ -347,9 +392,12 @@ function sim_world()
         % transform road coordinates
         [r_x,r_y,th] = dynamic_transform_coordinates(...
             r_x,r_y,e_x,e_y);
-        % transform road coordinates
+        % transform lane coordinates
         [l_x,l_y] = dynamic_transform_coordinates(...
             l_x,l_y,e_x,e_y, th);
+        % transform road edge coordinates
+        [re_x,re_y] = dynamic_transform_coordinates(...
+            re_x,re_y,e_x,e_y, th);
         % transform standing object coordinates
         [s_x,s_y] = dynamic_transform_coordinates(...
                 stand.x,stand.y,e_x,e_y, th);
@@ -395,6 +443,8 @@ function sim_world()
             r_y,r_x,'w','linewidth',2,'visible','off');
         lane.m.dynamic = plot(interface.main_figure.ax_dynamic,...
             l_y,l_x,'--w','linewidth',2);
+        road_edge.m.dynamic = plot(interface.main_figure.ax_dynamic,...
+            re_y,re_x,'w','linewidth',2);
         ego.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
             0,0,'or','linewidth',2);
         stand.m.dynamic = plot(interface.main_figure.ax_dynamic,...
@@ -425,12 +475,15 @@ function sim_world()
     end
 
     function update_plot_dynamic(...
-            road,road_x,road_y,lane,lane_x,lane_y,ego,...
-            stand,stand_x,stand_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
+            road,road_x,road_y,...
+            lane,lane_x,lane_y,...
+            road_edge,road_edge_x,road_edge_y,...
+            ego,stand,stand_x,stand_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
         
         % update dynamic plot data
         set(road.m.dynamic, 'xData',road_y, 'yData',road_x)
         set(lane.m.dynamic, 'xData',lane_y, 'yData',lane_x)
+        set(road_edge.m.dynamic, 'xData',road_edge_y, 'yData',road_edge_x)
         set(stand.m.dynamic,'xData',stand_y,'ydata',stand_x);
         set(mov.m.dynamic,  'xData',mov_y,  'yData',mov_x)
         set(onc.m.dynamic,  'xData',onc_y,  'yData',onc_x)
@@ -502,7 +555,7 @@ function sim_world()
             'style','slider',...
             'min', 10,...
             'max', 100,...
-            'value',55,...
+            'value',90,...
             'position', [0.635 0.67 0.33 0.02],...
             'callback',@ax_dynamic_perspective_Callback);
         init_ui_style(...
@@ -780,9 +833,10 @@ function sim_world()
     end
 
     function output_sim_data(...
-            interface,road,lane,ego,stand,mov,onc,t,dt,road_tail)
+            interface,road,lane,road_edge,ego,stand,mov,onc,t,dt,road_tail)
         sim_world_data.road          = road;
         sim_world_data.lane          = lane;
+        sim_world_data.road_edge     = road_edge;
         sim_world_data.ego           = ego;
         sim_world_data.stand         = stand;
         sim_world_data.mov           = mov;
@@ -794,11 +848,12 @@ function sim_world()
         assignin('base','sim_world_data',sim_world_data)
     end
 
-    function [interface,road,lane,ego,stand,mov,onc,t,dt,road_tail] =...
+    function [interface,road,lane,road_edge,ego,stand,mov,onc,t,dt,road_tail] =...
             read_sim_data()
         sim_world_data = evalin('base','sim_world_data');
         road      = sim_world_data.road;
         lane      = sim_world_data.lane;
+        road_edge = sim_world_data.road_edge;
         ego       = sim_world_data.ego;
         stand     = sim_world_data.stand;
         mov       = sim_world_data.mov;
@@ -819,9 +874,10 @@ function sim_world()
                 set(source,'string','Resume');
                 
         end
-        [interface,road,lane,ego,stand,mov,onc,t,dt,road_tail] =...
+        [interface,road,lane,road_edge,ego,stand,mov,onc,t,dt,road_tail] =...
             read_sim_data();
-        master_run(interface,road,lane,ego,stand,mov,onc,road_tail,dt,t);
+        master_run(interface,road,lane,road_edge,...
+            ego,stand,mov,onc,road_tail,dt,t);
     end
 
     function ax_dynamic_perspective_Callback(source,~)
@@ -893,11 +949,11 @@ function sim_world()
 
         % initialize moving and oncoming objects
         mov_n_objects = 2;      % number of moving objects
-        mov = init_mov_objects(mov_n_objects, 1,x_t,ego,road);% moving obj
+        mov = init_mov_objects(mov_n_objects-1, 1,x_t,ego,road);% moving obj
         onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road);% oncoming obj
         
-        % initialize lanes
-        lane = init_lane(mov_n_objects,road);
+        % initialize lanes and road edges
+        [lane,road_edges] = init_lanes(road);
         
         % reset plots if already existent
         if isfield(interface.main_figure,'ax_init') % not yet initialized
@@ -905,11 +961,19 @@ function sim_world()
         end
         
         % initialize simulation animation variables
-        [interface, road, lane, ego, stand, mov, onc] = ...
-                    init_plots(interface, road, lane, ego, stand, mov, onc);
+        [interface, road,lane,road_edges,ego,stand,mov,onc] = ...
+                    init_plots(interface,road,lane,road_edges,...
+                    ego,stand,mov,onc);
         
         % output data to base workspace
-        output_sim_data(interface,road,lane,ego,stand,mov,onc,t,dt,road_tail)
+        output_sim_data(...
+            interface,road,lane,road_edges,...
+            ego,stand,mov,onc,t,dt,road_tail)
+        
+        % run one simulation cycle to finish initialization
+        controls_main_play_Callback(...
+            interface.main_figure.buttons.controls_main_play,[])
+        
     end
     
     function user_code_selectFunction_Callback(source,~)
