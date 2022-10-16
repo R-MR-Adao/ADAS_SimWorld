@@ -249,6 +249,12 @@ function sim_world()
         lane.x = @(x) [lane_l.x(x) nan lane_r.x(x)];
         lane.y = @(x) [lane_l.y(x) nan lane_r.y(x)];
     end
+
+    function road_area = init_road_area(road)
+        x = 0:road.x(end);
+        y = -40:40;
+        [road_area.X,road_area.Y] = meshgrid(x,y);        
+    end
     
     function obj = init_ego(x_t, road)
         obj = [];                % ego properties
@@ -338,8 +344,8 @@ function sim_world()
         
     end
 
-    function [interface,road,lane,road_edge,ego,stand,mov,onc] =...
-            init_plots(interface,road,lane,road_edge,ego,stand,mov,onc)
+    function [interface,road,lane,road_edge,road_area,ego,stand,mov,onc] =...
+            init_plots(interface,road,lane,road_edge,road_area,ego,stand,mov,onc)
         set(interface.main_figure.ax_static,... % dynamic axes limits
             'xlim', [road.x(1) road.x(end)],...
             'ylim', [-1 1]*road.T/2);
@@ -362,6 +368,16 @@ function sim_world()
         l_y = lane.y(r_x);      % lane y array
         re_x = road_edge.x(r_x);      % road edge x array
         re_y = road_edge.y(r_x);      % road edge y array
+        
+        ra_l = [re_x(1:floor(end/3))' re_y(1:floor(end/3))'];
+        ra_r = [re_x(floor(end/3*2)+2:end)' re_y(floor(end/3*2)+2:end)'];
+        ra_l = interp1(ra_l(:,1),ra_l(:,2),road_area.X(1,:));
+        ra_r = interp1(ra_r(:,1),ra_r(:,2),road_area.X(1,:));
+        road_area.map = zeros(size(road_area.X));
+        road_area.map(logical(...
+            (bsxfun(@times,ra_r,ones(size(road_area.X)))<road_area.Y).*...
+            (road_area.Y<bsxfun(@times,ra_l,ones(size(road_area.X))))...
+            )) = nan;
 
         e_x = ego.x(0,ego.x_1); % ego x position
         e_y = ego.y(e_x);       % ego y position
@@ -373,6 +389,12 @@ function sim_world()
         o_y = onc.y(0,0.05,mov.x_1);       % oncoming object y position
 
         % static axes plots:
+        road_area.m = surf(...
+            road_area.X(1,:),road_area.Y(:,1),road_area.map,...
+            'edgecolor','none',...
+            'facecolor',[51 100 0]/255,...
+            'parent',interface.main_figure.ax_static);
+        
         road.m.static = plot(interface.main_figure.ax_static,...
             r_x, r_y,'w','linewidth',2,'visible','off');
         lane.m.static = plot(interface.main_figure.ax_static,...
@@ -387,6 +409,7 @@ function sim_world()
             m_x,m_y,'o','color',[1 0.5 0],'linewidth',2);
         onc.m.static =  plot(interface.main_figure.ax_static,...
             o_x,o_y,'oc','linewidth',2);
+        
 
         % dynamic axes transformations
         % transform road coordinates
@@ -955,14 +978,17 @@ function sim_world()
         % initialize lanes and road edges
         [lane,road_edges] = init_lanes(road);
         
+        % initialize road area
+        road_area = init_road_area(road);
+        
         % reset plots if already existent
         if isfield(interface.main_figure,'ax_init') % not yet initialized
             reset_plots(interface);
         end
         
         % initialize simulation animation variables
-        [interface, road,lane,road_edges,ego,stand,mov,onc] = ...
-                    init_plots(interface,road,lane,road_edges,...
+        [interface, road,lane,road_edges,road_area,ego,stand,mov,onc] = ...
+                    init_plots(interface,road,lane,road_edges,road_area,...
                     ego,stand,mov,onc);
         
         % output data to base workspace
