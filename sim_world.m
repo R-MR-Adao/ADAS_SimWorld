@@ -378,6 +378,8 @@ function sim_world()
             'projection', 'orthographic');
         set(interface.main_figure.sliders.ax_dynamic_rot,'value',0)
         set(interface.main_figure.sliders.ax_dynamic_tilt,'value',90)
+        ax_dynamic_perspective_Callback(...
+            interface.main_figure.sliders.ax_dynamic_ypan)
 
         % initialze common variables
         r_x = road.x;           % road x array
@@ -714,7 +716,7 @@ function sim_world()
         % load file to user code textbox
         sim_world_data.interface = interface;
         assignin('base','sim_world_data',sim_world_data) % store in base ws
-        user_code_selectFunction_Callback([],[]);
+        user_code_selectFunction_Callback();
         interface = evalin('base','sim_world_data.interface'); % recover from base ws
         
         % load file button
@@ -988,12 +990,16 @@ function sim_world()
 % ************************** interface callbacks **************************
 
     function controls_main_play_Callback(source,~)
+        interface = evalin('base','sim_world_data.interface');
         switch get(source,'value')
             case 1
                 set(source,'string','Pause');
+                set(interface.main_figure.buttons.controls_main_reset,...
+                    'enable','off')
             case 0
                 set(source,'string','Resume');
-                
+                set(interface.main_figure.buttons.controls_main_reset,...
+                    'enable','on')
         end
         [interface,road,lane,road_edge,road_area,ego,stand,mov,onc,t,dt,road_tail] =...
             read_sim_data();
@@ -1018,7 +1024,7 @@ function sim_world()
                     'xlim',[-1 1]*vinv,...
                     'ylim',([-1 1] - yoff)*vinv)
                 controls_main_play_Callback(...
-                    interface.main_figure.buttons.controls_main_play,[])
+                    interface.main_figure.buttons.controls_main_play)
             case interface.main_figure.sliders.ax_dynamic_rot
                 set(interface.main_figure.ax_dynamic,...
                     'view',[vinv vv(2)],...
@@ -1105,7 +1111,7 @@ function sim_world()
         
         % run one simulation cycle to finish initialization
         controls_main_play_Callback(...
-            interface.main_figure.buttons.controls_main_play,[])
+            interface.main_figure.buttons.controls_main_play)
         
     end
     
@@ -1155,7 +1161,7 @@ function sim_world()
             sim_world_data.interface = interface;
             assignin('base','sim_world_data',sim_world_data)
 
-            user_code_selectFunction_Callback([],[])
+            user_code_selectFunction_Callback()
         end
         
     end
