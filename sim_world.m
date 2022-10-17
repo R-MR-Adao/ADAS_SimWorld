@@ -72,15 +72,15 @@ function sim_world()
         % initialize road area
         xl = get(interface.main_figure.ax_dynamic,'xlim');
         yl = get(interface.main_figure.ax_dynamic,'ylim');
-        %[~,road_area.X, road_area.Y] = init_road_area(xl,yl);
+        [~,road_area.X, road_area.Y] = init_road_area(xl*sqrt(2),yl*sqrt(2));
         %   find left edge
-        ra_l = [road_edge_x(1:floor(end/3))' road_edge_y(1:floor(end/3))'];
+        splits = find(isnan(road_edge_x)) + [-1 1];
+        ra_l = [road_edge_x(1:splits(1))' road_edge_y(1:splits(1))'];
         %   find right edge
-        ra_r = [road_edge_x(floor(end/3*2)+2:end)' road_edge_y(floor(end/3*2)+2:end)'];
+        ra_r = [road_edge_x(splits(2):end)' road_edge_y(splits(2):end)'];
         %   interpolate y coordinates
-        %ra_l = interp1(ra_l(:,1),ra_l(:,2),road_area.X(1,:));
-        ra_l = interp1(ra_l(:,1),ra_l(:,2),road_area.X(1,:)-road.x(round(end/2))+ego_x)-ego_y;
-        ra_r = interp1(ra_r(:,1),ra_r(:,2),road_area.X(1,:)-road.x(round(end/2))+ego_x)-ego_y;
+        ra_l = interp1(ra_l(:,1),ra_l(:,2),road_area.X(1,:)+ego.x_1)-ego_y;
+        ra_r = interp1(ra_r(:,1),ra_r(:,2),road_area.X(1,:)+ego.x_1)-ego_y;
         road_area.map = zeros(size(road_area.X));   % road map
         
         % update static axis
@@ -126,11 +126,11 @@ function sim_world()
         
         % transform road map coordinates
         [ra_x,ra_y] = dynamic_transform_coordinates(...
-                road_area.X(:),road_area.Y(:),ego_x,ego_y, theta);
+                road_area.X(:),road_area.Y(:),0,0, theta);
         
         % reconstruct road area coordinates
-        road_area_x = reshape(ra_x,size(road_area.X)) - ra_x(round(end/2));
-        road_area_y = reshape(ra_y,size(road_area.Y)) - ra_y(round(end/2));
+        road_area_x = reshape(ra_x,size(road_area.X));
+        road_area_y = reshape(ra_y,size(road_area.Y));
         
         % find data in sensor frames
         for ii = 1 : ego.sensor.n
@@ -282,14 +282,9 @@ function sim_world()
     end
 
     function [road_area, X, Y]= init_road_area(xl,yl)
-        n = 100;
+        n = 200;
         x = linspace(xl(1),xl(2),n);
         y = linspace(yl(1),yl(2),n);
-        
-        dx = 0.5;
-        x = xl(1):dx:xl(2);
-        y = yl(1):dx:yl(2);
-        %}
         [X,Y] = meshgrid(x,y);        
         road_area.X = X;
         road_area.Y = Y;
@@ -436,7 +431,8 @@ function sim_world()
         road_area.m.static = surf(...
             road_area.X(1,:),road_area.Y(:,1),road_area.map,...
             'edgecolor','none',...
-            'facecolor',[51 100 0]/255,...
+            'facecolor',[50 150 0]/270,...
+            'facealpha',0.5,...
             'parent',interface.main_figure.ax_static);
         
         road.m.static = plot(interface.main_figure.ax_static,...
@@ -481,6 +477,15 @@ function sim_world()
         % reconstruct road area coordinates
         ra_x = reshape(ra_x,size(road_area.X)) - ra_x(round(end/2));
         ra_y = reshape(ra_y,size(road_area.Y)) - ra_y(round(end/2));
+        
+        % dynamic axes plots
+        %   road area
+        road_area.m.dynamic = surf(...
+            ra_y,ra_x,road_area.map,...
+            'edgecolor','none',...
+            'facecolor',[50 150 0]/270,...
+            'facealpha',0.5,...
+            'parent',interface.main_figure.ax_dynamic);  
 
         % sensor fov
         for ii = 1 : ego.sensor.n
@@ -488,7 +493,7 @@ function sim_world()
             ego.sensor.m(ii) = patch(... % draw sensor FoV
                 ego.sensor.fov.draw.circ{ii}(:,2),...
                 ego.sensor.fov.draw.circ{ii}(:,1),...
-                'w','FaceAlpha',.3,...
+                'w','FaceAlpha',.15,...
                 'visible','off',...
                 'parent', interface.main_figure.ax_dynamic);
             % sensor specific FoV
@@ -510,14 +515,7 @@ function sim_world()
                 interface.main_figure.ax_sensor(ii),...
                 0,0,'oc','linewidth',2);
         end
-        
-        % dynamic axes plots
-        %   road area
-        road_area.m.dynamic = surf(...
-            ra_y,ra_x,road_area.map,...
-            'edgecolor','none',...
-            'facecolor',[51 100 0]/255,...
-            'parent',interface.main_figure.ax_dynamic);        
+              
         %   simulated objects
         road.m.dynamic = plot(interface.main_figure.ax_dynamic,...
             r_y,r_x,'w','linewidth',2,'visible','off');
@@ -981,6 +979,8 @@ function sim_world()
                 set(interface.main_figure.ax_dynamic,...
                     'xlim',[-1 1]*vinv,...
                     'ylim',[-1 1]*vinv)
+                controls_main_play_Callback(...
+                    interface.main_figure.buttons.controls_main_play,[])
             case interface.main_figure.sliders.ax_dynamic_rot
                 set(interface.main_figure.ax_dynamic,...
                     'view',[vinv vv(2)],...
