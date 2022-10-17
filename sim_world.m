@@ -69,19 +69,9 @@ function sim_world()
         road_edge_x = road_edge.x(road_x);
         road_edge_y = road_edge.y(road_x);
         
-        % initialize road area
-        xl = get(interface.main_figure.ax_dynamic,'xlim');
-        yl = get(interface.main_figure.ax_dynamic,'ylim');
-        [~,road_area.X, road_area.Y] = init_road_area(xl*sqrt(2),yl*sqrt(2));
-        %   find left edge
-        splits = find(isnan(road_edge_x)) + [-1 1];
-        ra_l = [road_edge_x(1:splits(1))' road_edge_y(1:splits(1))'];
-        %   find right edge
-        ra_r = [road_edge_x(splits(2):end)' road_edge_y(splits(2):end)'];
-        %   interpolate y coordinates
-        ra_l = interp1(ra_l(:,1),ra_l(:,2),road_area.X(1,:)+ego.x_1)-ego_y;
-        ra_r = interp1(ra_r(:,1),ra_r(:,2),road_area.X(1,:)+ego.x_1)-ego_y;
-        road_area.map = zeros(size(road_area.X));   % road map
+        % update road area
+        road_area = find_road_area(...
+            interface,road_area,road_edge_x,road_edge_y,ego,ego_y);
         
         % update static axis
         update_plot_static(ego,ego_x,ego_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
@@ -117,12 +107,6 @@ function sim_world()
                  -road.x(end)*((onc_x-ego_x) > road.x(round(end/2)));
         [onc_x,onc_y] = dynamic_transform_coordinates(...
             onc_x+o_shift,onc_y,ego_x,ego_y, theta);
-        
-        % subtract road from map for transparency
-        road_area.map(logical(...
-            (bsxfun(@times,ra_r,ones(size(road_area.X)))<road_area.Y).*...
-            (road_area.Y<bsxfun(@times,ra_l,ones(size(road_area.X))))...
-            )) = nan;
         
         % transform road map coordinates
         [ra_x,ra_y] = dynamic_transform_coordinates(...
@@ -413,19 +397,11 @@ function sim_world()
         o_y = onc.y(0,0.05,mov.x_1); % oncoming object y position
         
         % initialize road area
-        %   find left edge
-        ra_l = [re_x(1:floor(end/3))' re_y(1:floor(end/3))'];
-        %   find right edge
-        ra_r = [re_x(floor(end/3*2)+2:end)' re_y(floor(end/3*2)+2:end)'];
-        %   interpolate y coordinates
-        ra_l = interp1(ra_l(:,1),ra_l(:,2),road_area.X(1,:));
-        ra_r = interp1(ra_r(:,1),ra_r(:,2),road_area.X(1,:));
-        road_area.map = zeros(size(road_area.X));   % road map
-        % subtract road from map for transparency
-        road_area.map(logical(...
-            (bsxfun(@times,ra_r,ones(size(road_area.X)))<road_area.Y).*...
-            (road_area.Y<bsxfun(@times,ra_l,ones(size(road_area.X))))...
-            )) = nan;
+        xl = [0 r_x(end)];
+        yl = [-1 1]*road.T/2;
+        road_area = find_road_area(...
+            interface,road_area,re_x,re_y,ego,e_y,xl,yl);
+        
 
         % static axes plots:
         road_area.m.static = surf(...
@@ -872,6 +848,38 @@ function sim_world()
         set(h,...
             'backgroundcolor',interface.colors.panel_background,...
             'foregroundcolor',interface.colors.font)
+    end
+
+    function road_area = find_road_area(...
+            interface,road_area,road_edge_x,road_edge_y,ego,ego_y,xl,yl)
+        
+        if nargin() < 7
+            % initialize road area
+            xl = get(interface.main_figure.ax_dynamic,'xlim');
+            yl = get(interface.main_figure.ax_dynamic,'ylim');
+            [~,road_area.X, road_area.Y] = init_road_area(xl*sqrt(2),yl*sqrt(2));
+        else
+            [~,road_area.X, road_area.Y] = init_road_area(xl,yl);
+        end
+        
+        %   find left edge
+        splits = find(isnan(road_edge_x)) + [-1 1];
+        ra_l = [road_edge_x(1:splits(1))' road_edge_y(1:splits(1))'];
+        
+        %   find right edge
+        ra_r = [road_edge_x(splits(2):end)' road_edge_y(splits(2):end)'];
+        
+        %   interpolate y coordinates
+        ra_l = interp1(ra_l(:,1),ra_l(:,2),road_area.X(1,:)+ego.x_1)-ego_y;
+        ra_r = interp1(ra_r(:,1),ra_r(:,2),road_area.X(1,:)+ego.x_1)-ego_y;
+        
+        road_area.map = zeros(size(road_area.X));
+        % subtract road from map for transparency
+        road_area.map(logical(...
+            (bsxfun(@times,ra_r,ones(size(road_area.X)))<road_area.Y).*...
+            (road_area.Y<bsxfun(@times,ra_l,ones(size(road_area.X))))...
+            )) = nan;
+        
     end
 
     function init_user_code(interface, fname)
