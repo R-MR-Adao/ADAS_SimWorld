@@ -58,6 +58,7 @@ function sim_world()
         
         onc_x =  onc.x(t,dt,onc.x_1);
         onc_y =  onc.y(t,dt,onc.x_1);
+        onc.theta = atan2d(onc_y - onc.y(t-dt,dt,onc.x_1),onc_x - onc.x(t-dt,dt,onc.x_1));
         onc.x_1 = onc.x(t,dt,0);
         
         road_x = road.x + ego.x_1-road_tail;
@@ -107,6 +108,11 @@ function sim_world()
                  -road.x(end)*((onc_x-ego_x) > road.x(round(end/2)));
         [onc_x,onc_y] = dynamic_transform_coordinates(...
             onc_x+o_shift,onc_y,ego_x,ego_y, theta);
+        for ii = 1 : onc.n % oncoming object cubes (visualization)
+            onc.cube(ii).center = [onc_x(ii),onc_y(ii),0];
+            onc.cube(ii).theta  = theta/pi*180 - onc.theta(ii)+90;
+            onc.cube(ii)        = init_cube(onc.cube(ii));
+        end
         
         % transform road map coordinates
         [ra_x,ra_y] = dynamic_transform_coordinates(...
@@ -324,8 +330,9 @@ function sim_world()
         obj.y = rand(n,1)*diff(rg_y) + rg_y(1); 
     end
     
-    function obj = init_mov_objects(n, direction, x_t, ego, road)        
+    function obj = init_mov_objects(n, direction, x_t, ego, road, dt)        
         % moving objects
+        obj.n = n;
         obj.v = direction*ego.v*(rand(n,1)+0.5); % (m/s) moving object speed
         obj.t0 = ...            % random starting position
             rand(n,1)*diff(road.x([1 end]))./obj.v;
@@ -336,7 +343,15 @@ function sim_world()
         obj.x = @(t,dt,x_1) obj.lane.x(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); % (m) moving object y position
         obj.y = @(t,dt,x_1) obj.lane.y(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); % (m) moving object y position
         obj.x_1 = zeros(n,1); % (m) moving object last x
-        
+        % object cube (visualization)
+        for ii = 1 : n
+            obj.cube(ii).dimensions = [4 1.9 1.6];
+            obj.cube(ii).theta = [];
+            obj.cube(ii).x = [];
+            obj.cube(ii).y = [];
+            obj.cube(ii).z = [];
+            obj.cube(ii).idx = [];
+        end
     end
     
     function [x,y,theta] = dynamic_transform_coordinates(...
@@ -439,8 +454,7 @@ function sim_world()
         mov.m.static =  plot(interface.main_figure.ax_static,...
             m_x,m_y,'o','color',[1 0.5 0],'linewidth',2);
         onc.m.static =  plot(interface.main_figure.ax_static,...
-            o_x,o_y,'oc','linewidth',2);
-        
+            o_x,o_y,'oc','linewidth',2);        
 
         % dynamic axes transformations
         % transform road coordinates
@@ -461,6 +475,11 @@ function sim_world()
         % transform oncoming object corrdinates
         [o_x,o_y] = dynamic_transform_coordinates(...
                 o_x,o_y,e_x,e_y, th);
+        for ii = 1 : onc.n % oncoming object cubes (visualization)
+            onc.cube(ii).center = [o_x(ii),o_y(ii),0];
+            onc.cube(ii).theta  = th/pi*180 + 90 + 45;
+            onc.cube(ii)        = init_cube(onc.cube(ii));
+        end
         % transform road map coordinates
         [ra_x,ra_y] = dynamic_transform_coordinates(...
                 road_area.X(:),road_area.Y(:),e_x,e_y, th);
@@ -524,8 +543,14 @@ function sim_world()
             s_y,s_x,'og','linewidth',2);
         mov.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
             m_x,m_y,'o','color',[1 0.5 0],'linewidth',2);
-        onc.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
-            o_x,o_y,'oc','linewidth',2);
+        for ii = 1 : onc.n
+            onc.m.dynamic(ii) = patch(...       % draw moving object cubes
+                onc.cube(ii).y(onc.cube(ii).idx),...
+                onc.cube(ii).x(onc.cube(ii).idx),...
+                onc.cube(ii).z(onc.cube(ii).idx),...
+                'c','facealpha',0.5,...
+                'parent',interface.main_figure.ax_dynamic);
+        end
         %   user-detected objects
         stand.m.dynamic_user = plot(interface.main_figure.ax_dynamic,...
             s_y,s_x,'sg','visible','off','markersize',15);
@@ -562,7 +587,12 @@ function sim_world()
             'cdata',road_area.map,'zdata',road_area.map)
         set(stand.m.dynamic,'xData',stand_y,'ydata',stand_x);
         set(mov.m.dynamic,  'xData',mov_y,  'yData',mov_x)
-        set(onc.m.dynamic,  'xData',onc_y,  'yData',onc_x)
+        for ii = 1 : onc.n
+            set(onc.m.dynamic(ii),... % draw moving object cubes
+                'xData',onc.cube(ii).y(onc.cube(ii).idx),...
+                'yData',onc.cube(ii).x(onc.cube(ii).idx),...
+                'zData',onc.cube(ii).z(onc.cube(ii).idx));
+        end
         
         % update sensor-specific data
         for ii = 1 : ego.sensor.n
@@ -1121,8 +1151,8 @@ function sim_world()
 
         % initialize moving and oncoming objects
         mov_n_objects = 2;      % number of moving objects
-        mov = init_mov_objects(mov_n_objects-1, 1,x_t,ego,road);% moving obj
-        onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road);% oncoming obj
+        mov = init_mov_objects(mov_n_objects-1, 1,x_t,ego,road,dt);% moving obj
+        onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road,dt);% oncoming obj
         
         % initialize lanes and road edges
         [lane,road_edges] = init_lanes(road);
