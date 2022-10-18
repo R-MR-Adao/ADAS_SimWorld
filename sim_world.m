@@ -716,7 +716,7 @@ function sim_world()
         % load file to user code textbox
         sim_world_data.interface = interface;
         assignin('base','sim_world_data',sim_world_data) % store in base ws
-        user_code_selectFunction_Callback();
+        user_code_selectFunction_Callback([]);
         interface = evalin('base','sim_world_data.interface'); % recover from base ws
         
         % load file button
