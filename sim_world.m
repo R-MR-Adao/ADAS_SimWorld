@@ -419,19 +419,12 @@ function sim_world()
         % remove objects standing in the road
         stand.x(logical((ra_r < s_y).*(s_y < ra_l))) = [];
         stand.y(logical((ra_r < s_y).*(s_y < ra_l))) = [];
-
-        m_x = mov.x(0,0.05,mov.x_1); % moving object x position
-        m_y = mov.y(0,0.05,mov.x_1); % moving object y position
-
-        o_x = onc.x(0,0.05,mov.x_1); % oncoming object x position
-        o_y = onc.y(0,0.05,mov.x_1); % oncoming object y position
         
         % initialize road area
         xl = [0 r_x(end)];
         yl = [-1 1]*road.T/2;
         road_area = find_road_area(...
             interface,road_area,re_x,re_y,ego,e_y,xl,yl);
-        
 
         % static axes plots:
         road_area.m.static = surf(...
@@ -448,50 +441,18 @@ function sim_world()
         road_egde.m.static = plot(interface.main_figure.ax_static,...
             re_x, re_y,'w','linewidth',2);
         ego.m.static =  plot(interface.main_figure.ax_static,...
-            e_x,e_y,'or','linewidth',2);
+            0,0,'or','linewidth',2);
         stand.m.static = plot(interface.main_figure.ax_static,...
             stand.x, stand.y,'og','linewidth',2);
         mov.m.static =  plot(interface.main_figure.ax_static,...
-            m_x,m_y,'o','color',[1 0.5 0],'linewidth',2);
+            0,0,'o','color',[1 0.5 0],'linewidth',2);
         onc.m.static =  plot(interface.main_figure.ax_static,...
-            o_x,o_y,'oc','linewidth',2);        
-
-        % dynamic axes transformations
-        % transform road coordinates
-        [r_x,r_y,th] = dynamic_transform_coordinates(...
-            r_x,r_y,e_x,e_y);
-        % transform lane coordinates
-        [l_x,l_y] = dynamic_transform_coordinates(...
-            l_x,l_y,e_x,e_y, th);
-        % transform road edge coordinates
-        [re_x,re_y] = dynamic_transform_coordinates(...
-            re_x,re_y,e_x,e_y, th);
-        % transform standing object coordinates
-        [s_x,s_y] = dynamic_transform_coordinates(...
-                stand.x,stand.y,e_x,e_y, th);
-        % transform moving object corrdinates
-        [m_x,m_y] = dynamic_transform_coordinates(...
-                m_x,m_y,e_x,e_y, th);
-        % transform oncoming object corrdinates
-        [o_x,o_y] = dynamic_transform_coordinates(...
-                o_x,o_y,e_x,e_y, th);
-        for ii = 1 : onc.n % oncoming object cubes (visualization)
-            onc.cube(ii).center = [o_x(ii),o_y(ii),0];
-            onc.cube(ii).theta  = th/pi*180 + 90 + 45;
-            onc.cube(ii)        = init_cube(onc.cube(ii));
-        end
-        % transform road map coordinates
-        [ra_x,ra_y] = dynamic_transform_coordinates(...
-                road_area.X(:),road_area.Y(:),e_x,e_y, th);
-        
-        % reconstruct road area coordinates
-        ra_x = reshape(ra_x,size(road_area.X)) - ra_x(round(end/2));
-        ra_y = reshape(ra_y,size(road_area.Y)) - ra_y(round(end/2));
-        
+            0,0,'oc','linewidth',2);        
+       
         % dynamic axes plots
         %   road area
         road_area.m.dynamic = surf(...
-            ra_y,ra_x,road_area.map,...
+            [0 0],[0 0],zeros(2),...
             'edgecolor','none',...
             'facecolor',[50 150 0]/270,...
             'facealpha',0.5,...
@@ -528,11 +489,11 @@ function sim_world()
               
         %   simulated objects
         road.m.dynamic = plot(interface.main_figure.ax_dynamic,...
-            r_y,r_x,'w','linewidth',2,'visible','off');
+            0,0,'w','linewidth',2,'visible','off');
         lane.m.dynamic = plot(interface.main_figure.ax_dynamic,...
-            l_y,l_x,'--w','linewidth',2);
+            0,0,'--w','linewidth',2);
         road_edge.m.dynamic = plot(interface.main_figure.ax_dynamic,...
-            re_y,re_x,'w','linewidth',2);
+            0,0,'w','linewidth',2);
         ego.m.dynamic = patch(...           % draw ego cube
             ego.cube.x(ego.cube.idx),...
             ego.cube.y(ego.cube.idx),...
@@ -540,24 +501,22 @@ function sim_world()
             'r','facealpha',0.5,...
             'parent',interface.main_figure.ax_dynamic);
         stand.m.dynamic = plot(interface.main_figure.ax_dynamic,...
-            s_y,s_x,'og','linewidth',2);
+            0,0,'og','linewidth',2);
         mov.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
-            m_x,m_y,'o','color',[1 0.5 0],'linewidth',2);
+            0,0,'o','color',[1 0.5 0],'linewidth',2);
         for ii = 1 : onc.n
             onc.m.dynamic(ii) = patch(...       % draw moving object cubes
-                onc.cube(ii).y(onc.cube(ii).idx),...
-                onc.cube(ii).x(onc.cube(ii).idx),...
-                onc.cube(ii).z(onc.cube(ii).idx),...
+                0,0,0,...
                 'c','facealpha',0.5,...
                 'parent',interface.main_figure.ax_dynamic);
         end
         %   user-detected objects
         stand.m.dynamic_user = plot(interface.main_figure.ax_dynamic,...
-            s_y,s_x,'sg','visible','off','markersize',15);
+            0,0,'sg','visible','off','markersize',15);
         mov.m.dynamic_user = plot(interface.main_figure.ax_dynamic,...
-            m_y,m_x,'s','color',[1 0.5 0],'visible','off','markersize',15);
+            0,0,'s','color',[1 0.5 0],'visible','off','markersize',15);
         onc.m.dynamic_user = plot(interface.main_figure.ax_dynamic,...
-            o_y,o_x,'sc','visible','off','markersize',15);
+            0,0,'sc','visible','off','markersize',15);
         
         interface.main_figure.ax_init = true;
     end
@@ -942,7 +901,7 @@ function sim_world()
             road_edge_x,road_edge_y,ego,ego_y,...
                 road_area.X(1,:));
         
-        road_area.map = zeros(size(road_area.X));
+        road_area.map = -0.2*ones(size(road_area.X));
         % subtract road from map for transparency
         road_area.map(logical(...
             (bsxfun(@times,ra_r,ones(size(road_area.X)))<road_area.Y).*...
