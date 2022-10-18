@@ -280,6 +280,11 @@ function sim_world()
         obj.x = @(t,x_1) x_t(obj.v,t,x_1); % (m) ego x position;
         obj.y = @(x) road.y(x); % (m) ego y position
         obj.x_1 = 0;            % (m) ego's last x
+        % ego cube (visualization)
+        obj.cube.dimensions = [4 1.9 1.6];
+        obj.cube.center = [0 0 0];
+        obj.cube.theta = 0;
+        obj.cube = init_cube(obj.cube);
         % set sensor field od view properties
         obj.sensor.n = 4;              % number of sensors
         obj.sensor.fov.range = 80;     % sensor range
@@ -509,8 +514,12 @@ function sim_world()
             l_y,l_x,'--w','linewidth',2);
         road_edge.m.dynamic = plot(interface.main_figure.ax_dynamic,...
             re_y,re_x,'w','linewidth',2);
-        ego.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
-            0,0,'or','linewidth',2);
+        ego.m.dynamic = patch(...           % draw ego cube
+            ego.cube.x(ego.cube.idx),...
+            ego.cube.y(ego.cube.idx),...
+            ego.cube.z(ego.cube.idx),...
+            'r','facealpha',0.5,...
+            'parent',interface.main_figure.ax_dynamic);
         stand.m.dynamic = plot(interface.main_figure.ax_dynamic,...
             s_y,s_x,'og','linewidth',2);
         mov.m.dynamic =  plot(interface.main_figure.ax_dynamic,...
@@ -985,6 +994,34 @@ function sim_world()
         t         = sim_world_data.sim.t;
         dt        = sim_world_data.sim.dt;
         road_tail = sim_world_data.sim.road_tail;
+    end
+    
+    function cube = init_cube(cube,dimensions,center,theta)
+        
+        rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t) ;... % rotation matrix
+                                   sind(t)  cosd(t)];
+        if nargin == 1
+            dimensions = cube.dimensions;   % cube dimensions
+            center = cube.center;           % cube center position
+            theta = cube.theta;             % cube orientaton
+        end
+        % basic cube geometry
+        coord = [-1 -1 0;1 -1 0;1 1 0;-1 1 0;-1 -1 2;1 -1 2;1 1 2;-1 1 2];
+        % apply input properties
+        coord = bsxfun(@times,coord/2,dimensions);
+        coord = bsxfun(@plus,...
+            [rd(coord(:,1),coord(:,2),theta+90),coord(:,3)],...
+            center);
+        % vertex indices
+        cube.idx = [4 8 5 1 4; 1 5 6 2 1; 2 6 7 3 2;...
+                    3 7 8 4 3; 5 8 7 6 5; 1 4 3 2 1]';
+        cube.x = coord(:,1);    % cube x coordinates
+        cube.y = coord(:,2);    % cube y coordinates
+        cube.z = coord(:,3);    % cube z coordinates
+    end
+    
+    function draw_cube
+        
     end
 
 % ************************** interface callbacks **************************
