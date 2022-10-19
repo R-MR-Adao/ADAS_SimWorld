@@ -99,6 +99,7 @@ function sim_world()
                  -road.x(end)*((stand.x-ego_x) > road.x(round(end/2)));
         [stand_x,stand_y] = dynamic_transform_coordinates(...
             stand.x+s_shift,stand.y,ego_x,ego_y, theta);
+        stand = update_stand_object_cube(stand,stand_x,stand_y,theta);
         
         % transform moving object corrdinates
         m_shift = road.x(end)*((ego_x-mov_x) > road.x(round(end/2))) +... 
@@ -139,7 +140,7 @@ function sim_world()
             lane,lane_x,lane_y,...
             road_edge,road_edge_x,road_edge_y,...
             road_area,road_area_x,road_area_y,...
-            ego,stand,stand_x,stand_y,mov,onc)
+            ego,stand,mov,onc)
     end
 
     function sensor_f = fill_input_reconstruct_360_space(interface,sensor)
@@ -321,13 +322,22 @@ function sim_world()
     end
 
     function obj = init_stand(n,road)
+        obj.n = n;  % standing (static) objects properties
         % range for standing objects
         rg_x = [min(road.x) max(road.x)]; 
         rg_y = [-1 1]*road.T ;
-        obj = []; % standing (static) objects properties
         % randomly generate standing object positions
         obj.x = rand(n,1)*diff(rg_x) + rg_x(1);
         obj.y = rand(n,1)*diff(rg_y) + rg_y(1); 
+        % object cube (visualization)
+        for ii = 1 : n
+            obj.cube(ii).dimensions = [1 1 4];
+            obj.cube(ii).theta = [];
+            obj.cube(ii).x = [];
+            obj.cube(ii).y = [];
+            obj.cube(ii).z = [];
+            obj.cube(ii).idx = [];
+        end
     end
     
     function obj = init_mov_objects(n, direction, x_t, ego, road, dt)        
@@ -419,6 +429,7 @@ function sim_world()
         % remove objects standing in the road
         stand.x(logical((ra_r < s_y).*(s_y < ra_l))) = [];
         stand.y(logical((ra_r < s_y).*(s_y < ra_l))) = [];
+        stand.n = length(stand.y);
         
         % initialize road area
         xl = [0 r_x(end)];
@@ -500,8 +511,12 @@ function sim_world()
             ego.cube.z(ego.cube.idx),...
             'r','facealpha',0.5,...
             'parent',interface.main_figure.ax_dynamic);
-        stand.m.dynamic = plot(interface.main_figure.ax_dynamic,...
-            0,0,'og','linewidth',2);
+        for ii = 1 : stand.n
+            stand.m.dynamic(ii) = patch(...       % draw moving object cubes
+                0,0,0,...
+                'g','facealpha',0.5,...
+                'parent',interface.main_figure.ax_dynamic);
+        end
         for ii = 1 : mov.n
             mov.m.dynamic(ii) = patch(...       % draw moving object cubes
                 0,0,0,...
@@ -541,7 +556,7 @@ function sim_world()
             lane,lane_x,lane_y,...
             road_edge,road_edge_x,road_edge_y,...
             road_area,road_area_x,road_area_y,...
-            ego,stand,stand_x,stand_y,mov,onc)
+            ego,stand,mov,onc)
         
         % update dynamic plot data
         set(road.m.dynamic, 'xData',road_y, 'yData',road_x)
@@ -549,7 +564,12 @@ function sim_world()
         set(road_edge.m.dynamic, 'xData',road_edge_y, 'yData',road_edge_x)
         set(road_area.m.dynamic, 'xData',road_area_y, 'yData',road_area_x,...
             'cdata',road_area.map,'zdata',road_area.map)
-        set(stand.m.dynamic,'xData',stand_y,'ydata',stand_x);
+        for ii = 1 : stand.n
+            set(stand.m.dynamic(ii),... % draw standing object cubes
+                'xData',stand.cube(ii).y(stand.cube(ii).idx),...
+                'yData',stand.cube(ii).x(stand.cube(ii).idx),...
+                'zData',stand.cube(ii).z(stand.cube(ii).idx));
+        end
         for ii = 1 : mov.n
             set(mov.m.dynamic(ii),... % draw moving object cubes
                 'xData',mov.cube(ii).y(mov.cube(ii).idx),...
@@ -557,7 +577,7 @@ function sim_world()
                 'zData',mov.cube(ii).z(mov.cube(ii).idx));
         end
         for ii = 1 : onc.n
-            set(onc.m.dynamic(ii),... % draw moving object cubes
+            set(onc.m.dynamic(ii),... % draw oncoming object cubes
                 'xData',onc.cube(ii).y(onc.cube(ii).idx),...
                 'yData',onc.cube(ii).x(onc.cube(ii).idx),...
                 'zData',onc.cube(ii).z(onc.cube(ii).idx));
@@ -993,6 +1013,15 @@ function sim_world()
         t         = sim_world_data.sim.t;
         dt        = sim_world_data.sim.dt;
         road_tail = sim_world_data.sim.road_tail;
+    end
+
+    function obj = update_stand_object_cube(obj,obj_x,obj_y,theta)
+        
+        for ii = 1 : obj.n % object cubes (visualization)
+            obj.cube(ii).center = [obj_x(ii),obj_y(ii),0];
+            obj.cube(ii).theta  = theta/pi*180 + 90;
+            obj.cube(ii)        = init_cube(obj.cube(ii));
+        end
     end
 
     function obj = update_mov_object_cube(obj,obj_x,obj_y,theta)
