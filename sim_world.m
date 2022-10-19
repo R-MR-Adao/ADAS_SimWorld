@@ -99,21 +99,23 @@ function sim_world()
                  -road.x(end)*((stand.x-ego_x) > road.x(round(end/2)));
         [stand_x,stand_y] = dynamic_transform_coordinates(...
             stand.x+s_shift,stand.y,ego_x,ego_y, theta);
-        stand = update_stand_object_cube(stand,stand_x,stand_y,theta);
+        fov = [get(interface.main_figure.ax_dynamic,'ylim');... axes fov
+            get(interface.main_figure.ax_dynamic,'xlim')]';
+        stand = update_stand_object_cube(stand,stand_x,stand_y,theta,fov);
         
         % transform moving object corrdinates
         m_shift = road.x(end)*((ego_x-mov_x) > road.x(round(end/2))) +... 
                  -road.x(end)*((mov_x-ego_x) > road.x(round(end/2)));
         [mov_x,mov_y] = dynamic_transform_coordinates(...
             mov_x+m_shift,mov_y,ego_x,ego_y, theta);
-        mov = update_mov_object_cube(mov,mov_x,mov_y,theta);
+        mov = update_mov_object_cube(mov,mov_x,mov_y,theta,fov);
         
         % transform oncoming object corrdinates
         o_shift = road.x(end)*((ego_x-onc_x) > road.x(round(end/2))) +... 
                  -road.x(end)*((onc_x-ego_x) > road.x(round(end/2)));
         [onc_x,onc_y] = dynamic_transform_coordinates(...
             onc_x+o_shift,onc_y,ego_x,ego_y, theta);
-        onc = update_mov_object_cube(onc,onc_x,onc_y,theta);
+        onc = update_mov_object_cube(onc,onc_x,onc_y,theta,fov);
         
         % transform road map coordinates
         [ra_x,ra_y] = dynamic_transform_coordinates(...
@@ -140,7 +142,10 @@ function sim_world()
             lane,lane_x,lane_y,...
             road_edge,road_edge_x,road_edge_y,...
             road_area,road_area_x,road_area_y,...
-            ego,stand,mov,onc)
+            ego,...
+            stand,stand_x,stand_y,...
+            mov,mov_x,mov_y,...
+            onc,onc_x,onc_y,fov)
     end
 
     function sensor_f = fill_input_reconstruct_360_space(interface,sensor)
@@ -283,7 +288,7 @@ function sim_world()
     
     function obj = init_ego(x_t, road)
         obj = [];                % ego properties
-        obj.v = 5;              % (m/s) ego speed
+        obj.v = 10;              % (m/s) ego speed
         obj.x = @(t,x_1) x_t(obj.v,t,x_1); % (m) ego x position;
         obj.y = @(x) road.y(x); % (m) ego y position
         obj.x_1 = 0;            % (m) ego's last x
@@ -532,11 +537,12 @@ function sim_world()
         end
         %   user-detected objects
         stand.m.dynamic_user = plot(interface.main_figure.ax_dynamic,...
-            0,0,'sg','visible','off','markersize',15);
+            0,0,'sg','visible','off','markersize',15,'linewidth',2);
         mov.m.dynamic_user = plot(interface.main_figure.ax_dynamic,...
-            0,0,'s','color',[1 0.5 0],'visible','off','markersize',15);
+            0,0,'s','color',[1 0.5 0],'visible','off','markersize',15,...
+            'linewidth',2);
         onc.m.dynamic_user = plot(interface.main_figure.ax_dynamic,...
-            0,0,'sc','visible','off','markersize',15);
+            0,0,'sc','visible','off','markersize',15,'linewidth',2);
         
         interface.main_figure.ax_init = true;
     end
@@ -556,7 +562,10 @@ function sim_world()
             lane,lane_x,lane_y,...
             road_edge,road_edge_x,road_edge_y,...
             road_area,road_area_x,road_area_y,...
-            ego,stand,mov,onc)
+            ego,...
+            stand,stand_x,stand_y,...
+            mov,mov_x,mov_y,...
+            onc,onc_x,onc_y,fov)
         
         % update dynamic plot data
         set(road.m.dynamic, 'xData',road_y, 'yData',road_x)
@@ -565,22 +574,40 @@ function sim_world()
         set(road_area.m.dynamic, 'xData',road_area_y, 'yData',road_area_x,...
             'cdata',road_area.map,'zdata',road_area.map)
         for ii = 1 : stand.n
-            set(stand.m.dynamic(ii),... % draw standing object cubes
-                'xData',stand.cube(ii).y(stand.cube(ii).idx),...
-                'yData',stand.cube(ii).x(stand.cube(ii).idx),...
-                'zData',stand.cube(ii).z(stand.cube(ii).idx));
+            if (fov(1,1) <= stand_x(ii)) && (stand_x(ii) <= fov(2,1)) && ...
+                    (fov(1,2) <= stand_y(ii)) && (stand_y(ii) <= fov(2,2))
+                set(stand.m.dynamic(ii),... % draw standing object cubes
+                    'visible','on',...
+                    'xData',stand.cube(ii).y(stand.cube(ii).idx),...
+                    'yData',stand.cube(ii).x(stand.cube(ii).idx),...
+                    'zData',stand.cube(ii).z(stand.cube(ii).idx));
+            else
+                set(stand.m.dynamic(ii),'visible','off');
+            end
         end
         for ii = 1 : mov.n
-            set(mov.m.dynamic(ii),... % draw moving object cubes
-                'xData',mov.cube(ii).y(mov.cube(ii).idx),...
-                'yData',mov.cube(ii).x(mov.cube(ii).idx),...
-                'zData',mov.cube(ii).z(mov.cube(ii).idx));
+            if (fov(1,1) <= mov_x(ii)) && (mov_x(ii) <= fov(2,1)) && ...
+                    (fov(1,2) <= mov_y(ii)) && (mov_y(ii) <= fov(2,2))
+                set(mov.m.dynamic(ii),... % draw moving object cubes
+                    'visible','on',...
+                    'xData',mov.cube(ii).y(mov.cube(ii).idx),...
+                    'yData',mov.cube(ii).x(mov.cube(ii).idx),...
+                    'zData',mov.cube(ii).z(mov.cube(ii).idx));
+            else
+                set(mov.m.dynamic(ii),'visible','off');
+            end
         end
         for ii = 1 : onc.n
-            set(onc.m.dynamic(ii),... % draw oncoming object cubes
-                'xData',onc.cube(ii).y(onc.cube(ii).idx),...
-                'yData',onc.cube(ii).x(onc.cube(ii).idx),...
-                'zData',onc.cube(ii).z(onc.cube(ii).idx));
+            if (fov(1,1) <= onc_x(ii)) && (onc_x(ii) <= fov(2,1)) && ...
+                    (fov(1,2) <= onc_y(ii)) && (onc_y(ii) <= fov(2,2))
+                set(onc.m.dynamic(ii),... % draw oncoming object cubes
+                    'visible','on',...
+                    'xData',onc.cube(ii).y(onc.cube(ii).idx),...
+                    'yData',onc.cube(ii).x(onc.cube(ii).idx),...
+                    'zData',onc.cube(ii).z(onc.cube(ii).idx));
+            else
+                set(onc.m.dynamic(ii),'visible','off');
+            end
         end
         
         % update sensor-specific data
@@ -1015,21 +1042,27 @@ function sim_world()
         road_tail = sim_world_data.sim.road_tail;
     end
 
-    function obj = update_stand_object_cube(obj,obj_x,obj_y,theta)
+    function obj = update_stand_object_cube(obj,obj_x,obj_y,theta,fov)
         
         for ii = 1 : obj.n % object cubes (visualization)
-            obj.cube(ii).center = [obj_x(ii),obj_y(ii),0];
-            obj.cube(ii).theta  = theta/pi*180 + 90;
-            obj.cube(ii)        = init_cube(obj.cube(ii));
+            if (fov(1,1) <= obj_x(ii)) && (obj_x(ii) <= fov(2,1)) && ...
+                    (fov(1,2) <= obj_y(ii)) && (obj_y(ii) <= fov(2,2))
+                obj.cube(ii).center = [obj_x(ii),obj_y(ii),0];
+                obj.cube(ii).theta  = theta/pi*180 + 90;
+                obj.cube(ii)        = init_cube(obj.cube(ii));
+            end
         end
     end
 
-    function obj = update_mov_object_cube(obj,obj_x,obj_y,theta)
+    function obj = update_mov_object_cube(obj,obj_x,obj_y,theta,fov)
         
         for ii = 1 : obj.n % object cubes (visualization)
-            obj.cube(ii).center = [obj_x(ii),obj_y(ii),0];
-            obj.cube(ii).theta  = theta/pi*180 - obj.theta(ii)+90;
-            obj.cube(ii)        = init_cube(obj.cube(ii));
+            if (fov(1,1) <= obj_x(ii)) && (obj_x(ii) <= fov(2,1)) && ...
+                    (fov(1,2) <= obj_y(ii)) && (obj_y(ii) <= fov(2,2))
+                obj.cube(ii).center = [obj_x(ii),obj_y(ii),0];
+                obj.cube(ii).theta  = theta/pi*180 - obj.theta(ii)+90;
+                obj.cube(ii)        = init_cube(obj.cube(ii));
+            end
         end
     end
     
@@ -1135,7 +1168,7 @@ function sim_world()
             'string','Start')
         
         % initialize simulation time
-        dt = 0.05;  % (s) time resolution
+        dt = 0.03;  % (s) time resolution
         t = 0;      % (s) time
     
         % initialize road map
