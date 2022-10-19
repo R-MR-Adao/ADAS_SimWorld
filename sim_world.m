@@ -75,7 +75,7 @@ function sim_world()
         
         % update road area
         road_area = find_road_area(...
-            interface,road_area,road_edge_x,road_edge_y,ego,ego_y);
+            interface,road,road_area,road_edge_x,road_edge_y,ego,ego_y);
         
         % update static axis
         update_plot_static(ego,ego_x,ego_y,mov,mov_x,mov_y,onc,onc_x,onc_y)
@@ -124,6 +124,8 @@ function sim_world()
         % reconstruct road area coordinates
         road_area_x = reshape(ra_x,size(road_area.X));
         road_area_y = reshape(ra_y,size(road_area.Y));
+        road_area_z = road_area.Z(...
+            road_area.X,ego.x_1,road_area.Y,ego_y,road_area.map);
         
         % find data in sensor frames
         for ii = 1 : ego.sensor.n
@@ -141,7 +143,7 @@ function sim_world()
         update_plot_dynamic(road,road_x,road_y,...
             lane,lane_x,lane_y,...
             road_edge,road_edge_x,road_edge_y,...
-            road_area,road_area_x,road_area_y,...
+            road_area,road_area_x,road_area_y,road_area_z,...
             ego,...
             stand,stand_x,stand_y,...
             mov,mov_x,mov_y,...
@@ -228,6 +230,7 @@ function sim_world()
         obj.x = 0:0.2:240;     % (m) road x array
         obj.y = @(x) ...       % (m) road y array
             obj.T/3*sin(2*pi/obj.T*x).*cos(2*pi/obj.T/3*x);
+        
     end
 
     function obj = init_mov_lane(road, off)
@@ -277,13 +280,18 @@ function sim_world()
         lane.y = @(x) [lane_l.y(x) nan lane_r.y(x)];
     end
 
-    function [road_area, X, Y]= init_road_area(xl,yl)
-        n = 240;
+    function [road_area, X, Y]= init_road_area(xl,yl,road)
+        n = 200;
+        a = 15;
+        c = 50;
         x = linspace(xl(1),xl(2),n);
         y = linspace(yl(1),yl(2),n);
         [X,Y] = meshgrid(x,y);        
         road_area.X = X;
         road_area.Y = Y;
+        road_area.Z_ = @(X,Y) a*exp(-((Y - road.y(X))/c).^2);
+        road_area.Z = @(X,x0,Y,y0,m) - a + road_area.Z_(X+x0,Y+y0).*...
+            m/m(1) + isnan(m);
     end
     
     function obj = init_ego(x_t, road)
@@ -440,7 +448,7 @@ function sim_world()
         xl = [0 r_x(end)];
         yl = [-1 1]*road.T/2;
         road_area = find_road_area(...
-            interface,road_area,re_x,re_y,ego,e_y,xl,yl);
+            interface,road,road_area,re_x,re_y,ego,e_y,xl,yl);
 
         % static axes plots:
         road_area.m.static = surf(...
@@ -469,9 +477,10 @@ function sim_world()
         %   road area
         road_area.m.dynamic = surf(...
             [0 0],[0 0],zeros(2),...
-            'edgecolor','none',...
+            'edgecolor','g',...
             'facecolor',[50 150 0]/270,...
             'facealpha',0.5,...
+            'edgealpha',0.5,...
             'parent',interface.figures.main.axes.dynamic);  
 
         % sensor fov
@@ -561,7 +570,7 @@ function sim_world()
             road,road_x,road_y,...
             lane,lane_x,lane_y,...
             road_edge,road_edge_x,road_edge_y,...
-            road_area,road_area_x,road_area_y,...
+            road_area,road_area_x,road_area_y,road_area_z,...
             ego,...
             stand,stand_x,stand_y,...
             mov,mov_x,mov_y,...
@@ -572,7 +581,7 @@ function sim_world()
         set(lane.m.dynamic, 'xData',lane_y, 'yData',lane_x)
         set(road_edge.m.dynamic, 'xData',road_edge_y, 'yData',road_edge_x)
         set(road_area.m.dynamic, 'xData',road_area_y, 'yData',road_area_x,...
-            'cdata',road_area.map,'zdata',road_area.map)
+            'cdata',road_area.map,'zdata',road_area_z)
         for ii = 1 : stand.n
             if (fov(1,1) <= stand_x(ii)) && (stand_x(ii) <= fov(2,1)) && ...
                     (fov(1,2) <= stand_y(ii)) && (stand_y(ii) <= fov(2,2))
@@ -630,11 +639,14 @@ function sim_world()
     function init_interface()
         % try to close already opened figure, if existent
         try
-            f = evalin('base','sim_world_data.interface.figures.main.f');
-            close(f)
-            delete(f)
+            f1 = evalin('base','sim_world_data.interface.figures.visu.f');
+            f2 = evalin('base','sim_world_data.interface.figures.main.f');
+            close(f1)
+            close(f2)
+            delete(f1)
+            delete(f2)
         catch
-            % nothign
+            % nothing
         end
         
         interface = [];
@@ -645,6 +657,11 @@ function sim_world()
         interface.colors.font             = [1 1 1]*1;
         interface.colors.code_background  = [1 1 1]*0.2;
         interface.colors.code_font        = [0.5 1 0.5];
+        interface.figures.visu.f = figure(...
+            'color',interface.colors.background,...
+            'position',[1 31 1920 973],... %[450 80 1080 720]
+            'visible','off',...
+            'CloseRequestFcn',@f_CloseRequestFcn);
         interface.figures.main.f = figure(...
             'color',interface.colors.background,...
             'position',[1 31 1920 973],... %[450 80 1080 720]
@@ -943,15 +960,15 @@ function sim_world()
     end
 
     function road_area = find_road_area(...
-            interface,road_area,road_edge_x,road_edge_y,ego,ego_y,xl,yl)
+            interface,road,road_area,road_edge_x,road_edge_y,ego,ego_y,xl,yl)
         
-        if nargin() < 7
+        if nargin() < 8
             % initialize road area
             xl = get(interface.figures.main.axes.dynamic,'xlim');
             xl = mean(xl) + [-1 1]*diff(xl)*1.1; % expand to fit y span
-            [~,road_area.X, road_area.Y] = init_road_area(xl,xl);
+            [~,road_area.X, road_area.Y] = init_road_area(xl,xl,road);
         else
-            [~,road_area.X, road_area.Y] = init_road_area(xl,yl);
+            [~,road_area.X, road_area.Y] = init_road_area(xl,yl,road);
         end
         
         [ra_l,ra_r] = find_road_points(...
@@ -1195,7 +1212,7 @@ function sim_world()
         
         % initialize road area
         road_area = init_road_area(...
-            [0 road.x(end)],[-road.x(end)/2 road.x(end)/2]);
+            [0 road.x(end)],[-road.x(end)/2 road.x(end)/2],road);
         
         % reset plots if already existent
         if isfield(interface.figures.main,'ax_init') % not yet initialized
