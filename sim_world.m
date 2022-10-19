@@ -1154,6 +1154,10 @@ function sim_world()
         controls_main_play_Callback(...
             interface.main_figure.buttons.controls_main_play)
         
+        % reset start button string
+        set(interface.main_figure.buttons.controls_main_play,...
+            'string','Start')
+        
     end
     
     function user_code_selectFunction_Callback(source,~)
