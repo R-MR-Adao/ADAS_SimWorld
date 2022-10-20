@@ -125,7 +125,7 @@ function sim_world()
         road_area_x = reshape(ra_x,size(road_area.X));
         road_area_y = reshape(ra_y,size(road_area.Y));
         road_area_z = road_area.Z(...
-            road_area.X,ego.x_1,road_area.Y,ego_y,road_area.map);
+            road_area.X,ego.x_1,road_area.Y,ego_y-3.75);
         
         % find data in sensor frames
         for ii = 1 : ego.sensor.n
@@ -292,7 +292,7 @@ function sim_world()
         road_area.X = X;
         road_area.Y = Y;
         road_area.Z_ = @(X,Y) a*exp(-((Y - road.y(X))/c).^2);
-        road_area.Z = @(X,x0,Y,y0,m) - a + road_area.Z_(X+x0,Y+y0);% .*...            m/m(1) + isnan(m);
+        road_area.Z = @(X,x0,Y,y0) - a + road_area.Z_(X+x0,Y+y0);
     end
     
     function obj = init_ego(x_t, road)
@@ -343,7 +343,7 @@ function sim_world()
         % randomly generate standing object positions
         obj.x = rand(n,1)*diff(rg_x) + rg_x(1);
         obj.y = rand(n,1)*diff(rg_y) + rg_y(1); 
-        obj.z = road_area.Z(obj.x,0,obj.y,0,1);
+        obj.z = road_area.Z(obj.x,0,obj.y,0);
         % object cube (visualization)
         for ii = 1 : n
             obj.cube(ii).dimensions = [1 1 4];
@@ -949,7 +949,8 @@ function sim_world()
        set(ax,...
            'color',interface.colors.plot_background,...
            'xcolor',interface.colors.plot_lines,...
-           'ycolor',interface.colors.plot_lines)
+           'ycolor',interface.colors.plot_lines,...
+           'zcolor',interface.colors.plot_lines)
         axis image
         hold on
         grid on
@@ -995,7 +996,7 @@ function sim_world()
         road_area.map = -0.2*ones(size(road_area.X));
         % subtract road from map for transparency
         road_area.map(logical(...
-            (bsxfun(@times,ra_r,ones(size(road_area.X)))<road_area.Y).*...
+            (bsxfun(@times,ra_r,ones(size(road_area.X)))<=road_area.Y).*...
             (road_area.Y<bsxfun(@times,ra_l,ones(size(road_area.X))))...
             )) = 0;
         
@@ -1202,7 +1203,7 @@ function sim_world()
             'string','Start')
         
         % initialize simulation time
-        dt = 0.03;  % (s) time resolution
+        dt = 0.02;  % (s) time resolution
         t = 0;      % (s) time
     
         % initialize road map
