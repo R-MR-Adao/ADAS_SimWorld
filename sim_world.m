@@ -676,10 +676,15 @@ function sim_world()
         interface.colors.code_font        = [0.5 1 0.5];
         interface.figures.visu.f = figure(...
             'color',interface.colors.background,...
+            'NumberTitle', 'off',...
+            'name','ADAS SimWorld: visualizatrion',...
             'position',[1 31 1920 973],... %[450 80 1080 720]
             'visible','off',...
             'CloseRequestFcn',@f_CloseRequestFcn);
+        colormap([bsxfun(@times,[50 150 0]/270,ones(100,3));[1 1 1]*0.3])
         interface.figures.main.f = figure(...
+            'NumberTitle', 'off',...
+            'name','ADAS SimWorld',...
             'color',interface.colors.background,...
             'position',[1 31 1920 973],... %[450 80 1080 720]
             'CloseRequestFcn',@f_CloseRequestFcn);
@@ -699,9 +704,11 @@ function sim_world()
         init_axes_style(interface.figures.main.axes.static,interface)
         
         % dynamic axes
+        interface.figures.main.axes.dynamic_pos = [0.645 0.08 0.32 0.58];
         interface.figures.main.axes.dynamic = axes(...
             'parent',interface.figures.main.panels.playback_main,...
-            'position',[0.645 0.08 0.32 0.58],'xdir','reverse');
+            'position',interface.figures.main.axes.dynamic_pos,...
+            'xdir','reverse');
         init_axes_style(interface.figures.main.axes.dynamic,interface)
         
         % zoom slider
@@ -755,6 +762,17 @@ function sim_world()
             'callback',@axes_dynamic_perspective_Callback);
         init_ui_style(...
             interface.figures.main.sliders.ax_dynamic_ypan,interface)
+        
+        % pop button
+        interface.figures.main.buttons.ax_dynamic_pop = uicontrol(...
+            'parent',interface.figures.main.panels.playback_main,...
+            'units','normalized',...
+            'style','pushbutton',...
+            'string','Pop',...
+            'position', [0.92 0.015 0.04 0.025],...
+            'callback',@ax_dynamic_pop_Callback);
+        init_ui_style(...
+            interface.figures.main.buttons.ax_dynamic_pop,interface)
         
         % sensor axes
         w = 0.29;       % axes width
@@ -1178,6 +1196,33 @@ function sim_world()
         end
     end
 
+    function ax_dynamic_pop_Callback(source,~)
+        
+        % get interface from main workspace
+        interface = evalin('base','sim_world_data.interface');
+        
+        % get dynamic axes
+        ax_dynamic = interface.figures.main.axes.dynamic;
+        fig_visu = interface.figures.visu.f;
+        pan_playback = interface.figures.main.panels.playback_main;
+        
+        % change parent
+        switch get(ax_dynamic,'parent')
+            case pan_playback
+                set(ax_dynamic,...
+                    'parent',fig_visu,...
+                    'position',[0.1 0.1 0.8 0.8])
+                set(fig_visu,'visible','on')
+                set(source,'string','Pull')
+            case fig_visu
+                set(ax_dynamic,...
+                    'parent',pan_playback,...
+                    'position',interface.figures.main.axes.dynamic_pos)
+                set(fig_visu,'visible','off')
+                set(source,'string','Pop')
+        end
+    end       
+
     function func = ui_get_user_code_Function(source)
         
         % load interface from base workspace
@@ -1386,7 +1431,21 @@ function sim_world()
     end
 
     function f_CloseRequestFcn(source,~)
+        
+        % get interface from main workspace
+        interface = evalin('base','sim_world_data.interface');
+        
+        % hide figure
         set(source,'visible','off')
+        
+        switch source
+            case interface.figures.visu.f
+                                set(interface.figures.main.axes.dynamic,...
+                    'parent',interface.figures.main.panels.playback_main,...
+                    'position',interface.figures.main.axes.dynamic_pos)
+                set(interface.figures.main.buttons.ax_dynamic_pop,...
+                    'string','Pop')
+        end
     end
     
 end
