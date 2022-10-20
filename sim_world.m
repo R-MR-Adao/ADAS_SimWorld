@@ -334,7 +334,7 @@ function sim_world()
         obj.sensor.key = {'FL', 'RL', 'RR', 'FR'};
     end
 
-    function obj = init_stand(n,road)
+    function obj = init_stand(n,road,road_area)
         obj.n = n;  % standing (static) objects properties
         % range for standing objects
         rg_x = [min(road.x) max(road.x)]; 
@@ -342,6 +342,7 @@ function sim_world()
         % randomly generate standing object positions
         obj.x = rand(n,1)*diff(rg_x) + rg_x(1);
         obj.y = rand(n,1)*diff(rg_y) + rg_y(1); 
+        obj.z = road_area.Z(obj.x,0,obj.y,0,1);
         % object cube (visualization)
         for ii = 1 : n
             obj.cube(ii).dimensions = [1 1 4];
@@ -442,6 +443,7 @@ function sim_world()
         % remove objects standing in the road
         stand.x(logical((ra_r < s_y).*(s_y < ra_l))) = [];
         stand.y(logical((ra_r < s_y).*(s_y < ra_l))) = [];
+        stand.z(logical((ra_r < s_y).*(s_y < ra_l))) = [];
         stand.n = length(stand.y);
         
         % initialize road area
@@ -477,10 +479,8 @@ function sim_world()
         %   road area
         road_area.m.dynamic = surf(...
             [0 0],[0 0],zeros(2),...
-            'edgecolor','g',...
-            'facecolor',[50 150 0]/270,...
-            'facealpha',0.5,...
-            'edgealpha',0.5,...
+            'edgecolor',[0.7 1 0]*0.8,...
+            'facecolor',[50 150 0]/270,...            'facealpha',0.5,...            'edgealpha',0.5,...
             'parent',interface.figures.main.axes.dynamic);  
 
         % sensor fov
@@ -589,7 +589,7 @@ function sim_world()
                     'visible','on',...
                     'xData',stand.cube(ii).y(stand.cube(ii).idx),...
                     'yData',stand.cube(ii).x(stand.cube(ii).idx),...
-                    'zData',stand.cube(ii).z(stand.cube(ii).idx));
+                    'zData',stand.cube(ii).z(stand.cube(ii).idx)+stand.z(ii));
             else
                 set(stand.m.dynamic(ii),'visible','off');
             end
@@ -1191,6 +1191,13 @@ function sim_world()
         % initialize road map
         road = init_road();
         road_tail = road.x(round(end/2));	% (m) road tail behind ego
+        
+        % initialize lanes and road edges
+        [lane,road_edges] = init_lanes(road);
+        
+        % initialize road area
+        road_area = init_road_area(...
+            [0 road.x(end)],[-road.x(end)/2 road.x(end)/2],road);
 
         % motion equation for ego and moving objects
         x_t = @(v,t,x_1) v.*t - road.x(end).*floor(x_1/road.x(end));
@@ -1200,19 +1207,12 @@ function sim_world()
 
         % initialize standing objects
         stand_n_objects = 40;
-        stand = init_stand(stand_n_objects,road);
+        stand = init_stand(stand_n_objects,road,road_area);
 
         % initialize moving and oncoming objects
         mov_n_objects = 2;      % number of moving objects
         mov = init_mov_objects(mov_n_objects-1, 1,x_t,ego,road,dt);% moving obj
         onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road,dt);% oncoming obj
-        
-        % initialize lanes and road edges
-        [lane,road_edges] = init_lanes(road);
-        
-        % initialize road area
-        road_area = init_road_area(...
-            [0 road.x(end)],[-road.x(end)/2 road.x(end)/2],road);
         
         % reset plots if already existent
         if isfield(interface.figures.main,'ax_init') % not yet initialized
