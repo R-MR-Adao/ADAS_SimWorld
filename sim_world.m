@@ -28,6 +28,10 @@ function sim_world()
             % recover 360 degree coordinate space
             [stand_u,mov_u,onc_u] = reconstruct_360_space(sensor_f);
             
+            % calculate z coordinates for user detections
+            [stand_u,mov_u,onc_u] = calculate_user_z(stand_u,mov_u,onc_u,...
+                road_area,ego,interface);
+            
             % draw recovered coordinates
             update_plot_dynamic_user(stand,stand_u,mov,mov_u,onc,onc_u);
 
@@ -51,6 +55,7 @@ function sim_world()
         ego_x =  ego.x(t,ego.x_1);
         ego_y =  ego.y(ego_x);
         ego.x_1 = ego.x(t,0);
+        ego.y_1 = ego_y;
         
         mov_x =  mov.x(t,dt,mov.x_1);
         mov_y =  mov.y(t,dt,mov.x_1);
@@ -85,6 +90,7 @@ function sim_world()
         % transform road coordinates
         [road_x,road_y,theta] = dynamic_transform_coordinates(...
             road_x,road_y,ego.x_1,ego.y(ego.x_1));
+        ego.theta = theta;
         
         % transform lane coordinates
         [lane_x,lane_y] = dynamic_transform_coordinates(...
@@ -125,7 +131,7 @@ function sim_world()
         road_area_x = reshape(ra_x,size(road_area.X));
         road_area_y = reshape(ra_y,size(road_area.Y));
         road_area_z = road_area.Z(...
-            road_area.X,ego.x_1,road_area.Y,ego_y-3.75);
+            road_area.X,ego.x_1,road_area.Y,ego_y);
         
         % find data in sensor frames
         for ii = 1 : ego.sensor.n
@@ -194,11 +200,14 @@ function sim_world()
                 get(interface.figures.main.checkboxes.controls_main_showSensor_RL,'value'),...
                 get(interface.figures.main.checkboxes.controls_main_showSensor_RR,'value')])
             set(stand.m.dynamic_user,...
-                'xdata',stand_u(:,2),'ydata',stand_u(:,1),'visible','on')
+                'xdata',stand_u(:,2),'ydata',stand_u(:,1),'zdata',stand_u(:,3)+2,...
+                'visible','on')
             set(mov.m.dynamic_user,...
-                'xdata',mov_u(:,2),'ydata',mov_u(:,1),'visible','on')
+                'xdata',mov_u(:,2),'ydata',mov_u(:,1),'zdata',mov_u(:,3),...
+                'visible','on')
             set(onc.m.dynamic_user,...
-                'xdata',onc_u(:,2),'ydata',onc_u(:,1),'visible','on')
+                'xdata',onc_u(:,2),'ydata',onc_u(:,1),'zdata',onc_u(:,3),...
+                'visible','on')
         else
             set(stand.m.dynamic_user,'visible','off')
             set(mov.m.dynamic_user,'visible','off')
@@ -206,6 +215,28 @@ function sim_world()
         end
     end
 
+    function [stand_u,mov_u,onc_u] = calculate_user_z(stand_u,mov_u,onc_u,...
+                road_area,ego,interface)
+            if ~isempty(stand_u)
+                if get(interface.figures.main.sliders.ax_dynamic_tilt,'value')...
+                        < 70
+                    % calculate standing object z in their original position
+                    %   1) cancel ego rotation
+                    [stand_x,stand_y] = dynamic_transform_coordinates(...
+                        stand_u(:,1),stand_u(:,2),0,0,-ego.theta);
+                    %   2) calculate road_area z in the object positions
+                    stand_u = [stand_u road_area.Z(...
+                        stand_x,ego.x_1,stand_y,ego.y_1)];
+
+                else % approximate standing object z to zero
+                    stand_u = [stand_u zeros(size(stand_u,1),1)];
+                end
+
+                % moving and oncoming objects must have z = 0
+                mov_u = [mov_u zeros(size(mov_u,1),1)];
+                onc_u = [onc_u zeros(size(onc_u,1),1)];
+            end
+    end
     function data = sensor_data_find(sensor,ii,data_x,data_y)
         % rotation matrix
         rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);... 
@@ -292,7 +323,7 @@ function sim_world()
         road_area.X = X;
         road_area.Y = Y;
         road_area.Z_ = @(X,Y) a*exp(-((Y - road.y(X))/c).^2);
-        road_area.Z = @(X,x0,Y,y0) - a + road_area.Z_(X+x0,Y+y0);
+        road_area.Z = @(X,x0,Y,y0) - a + road_area.Z_(X+x0,Y+y0-3.75);
     end
     
     function obj = init_ego(x_t, road)
@@ -346,7 +377,7 @@ function sim_world()
         obj.z = road_area.Z(obj.x,0,obj.y,0);
         % object cube (visualization)
         for ii = 1 : n
-            obj.cube(ii).dimensions = [1 1 4];
+            obj.cube(ii).dimensions = [2 2 4];
             obj.cube(ii).theta = [];
             obj.cube(ii).x = [];
             obj.cube(ii).y = [];
@@ -524,20 +555,20 @@ function sim_world()
             0,0,'--w','linewidth',2);
         road_edge.m.dynamic = plot(interface.figures.main.axes.dynamic,...
             0,0,'w','linewidth',2);
-        ego.m.dynamic = patch(...           % draw ego cube
+        ego.m.dynamic = patch(...              % draw ego cube
             ego.cube.x(ego.cube.idx),...
             ego.cube.y(ego.cube.idx),...
             ego.cube.z(ego.cube.idx),...
             'r','facealpha',0.5,...
             'parent',interface.figures.main.axes.dynamic);
         for ii = 1 : stand.n
-            stand.m.dynamic(ii) = patch(...       % draw moving object cubes
+            stand.m.dynamic(ii) = patch(...    % draw standing object cubes
                 0,0,0,...
                 'g','facealpha',0.5,...
                 'parent',interface.figures.main.axes.dynamic);
         end
         for ii = 1 : mov.n
-            mov.m.dynamic(ii) = patch(...       % draw moving object cubes
+            mov.m.dynamic(ii) = patch(...      % draw moving object cubes
                 0,0,0,...
                 'facecolor',[1 0.5 0],...
                 'facealpha',0.5,...
@@ -550,13 +581,13 @@ function sim_world()
                 'parent',interface.figures.main.axes.dynamic);
         end
         %   user-detected objects
-        stand.m.dynamic_user = plot(interface.figures.main.axes.dynamic,...
-            0,0,'sg','visible','off','markersize',15,'linewidth',2);
-        mov.m.dynamic_user = plot(interface.figures.main.axes.dynamic,...
-            0,0,'s','color',[1 0.5 0],'visible','off','markersize',15,...
+        stand.m.dynamic_user = plot3(interface.figures.main.axes.dynamic,...
+            0,0,0,'sg','visible','off','markersize',15,'linewidth',2);
+        mov.m.dynamic_user = plot3(interface.figures.main.axes.dynamic,...
+            0,0,0,'s','color',[1 0.5 0],'visible','off','markersize',15,...
             'linewidth',2);
-        onc.m.dynamic_user = plot(interface.figures.main.axes.dynamic,...
-            0,0,'sc','visible','off','markersize',15,'linewidth',2);
+        onc.m.dynamic_user = plot3(interface.figures.main.axes.dynamic,...
+            0,0,0,'sc','visible','off','markersize',15,'linewidth',2);
         
         interface.figures.main.ax_init = true;
     end
