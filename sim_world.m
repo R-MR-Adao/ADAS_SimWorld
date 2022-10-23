@@ -22,18 +22,22 @@ function sim_world()
                 ego,stand,mov,onc,road_tail);
             
             % fill inputs for user reconstruction
-            sensor_f = fill_input_reconstruct_360_space(...
-                interface,ego.sensor);
+            [sensor_f, ego_f] = fill_input_reconstruct_360_space(...
+                interface,ego,t,dt);
             
             % recover 360 degree coordinate space
-            [stand_u,mov_u,onc_u] = reconstruct_360_space(sensor_f);
+            [obj_u,stand_u,mov_u,onc_u] = reconstruct_360_space(...
+                sensor_f,ego_f);
             
             % calculate z coordinates for user detections
-            [stand_u,mov_u,onc_u] = calculate_user_z(stand_u,mov_u,onc_u,...
+            [obj_u,stand_u,mov_u,onc_u] = calculate_user_z(...
+                obj_u,stand_u,mov_u,onc_u,...
                 road_area,ego,interface);
             
             % draw recovered coordinates
-            update_plot_dynamic_user(stand,stand_u,mov,mov_u,onc,onc_u);
+            if get(interface.figures.main.buttons.controls_main_play,'value')
+                update_plot_dynamic_user(ego,obj_u,stand,stand_u,mov,mov_u,onc,onc_u);
+            end
 
             % increment time
             t = t + dt;
@@ -90,7 +94,8 @@ function sim_world()
         % transform road coordinates
         [road_x,road_y,theta] = dynamic_transform_coordinates(...
             road_x,road_y,ego.x_1,ego.y(ego.x_1));
-        ego.theta = theta;
+        ego.Dtheta = ego.theta - theta; % angular variation
+        ego.theta = theta;              % ego orientation
         
         % transform lane coordinates
         [lane_x,lane_y] = dynamic_transform_coordinates(...
@@ -165,38 +170,64 @@ function sim_world()
             onc,onc_x,onc_y,fov)
     end
 
-    function sensor_f = fill_input_reconstruct_360_space(interface,sensor)
+    function [sensor_f,ego_f] = fill_input_reconstruct_360_space(...
+            interface,ego,t,dt)
         % copy selected data from the sensor
-        sensor_f.n = sensor.n;                          % number of sensors
-        sensor_f.fov.range = sensor.fov.range;          % fov dist range
-        sensor_f.fov.theta = sensor.fov.theta;          % fov angular range
-        sensor_f.theta = sensor.theta;                  % fov orientation
-        sensor_f.pos = sensor.key;                      % sensor position
+        sensor_f.n = ego.sensor.n;                    % number of sensors
+        sensor_f.fov.range = ego.sensor.fov.range;    % fov dist range
+        sensor_f.fov.theta = ego.sensor.fov.theta;    % fov angular range
+        sensor_f.theta = ego.sensor.theta;            % fov orientation
+        sensor_f.pos = ego.sensor.key;                % sensor position
         
         % path to handle of sensor fov drawing
         sensor_path = ...
             'interface.figures.main.checkboxes.controls_main_showSensor_';
         
         % copy detected object data
-        for ii = 1 : sensor.n
-            sensor_switch = [sensor_path sensor.key{ii}];
+        for ii = 1 : ego.sensor.n
+            sensor_switch = [sensor_path ego.sensor.key{ii}];
             if get(eval(sensor_switch),'value')
                 sensor_f.active(ii) = true;
+                sensor_f.data(ii).obj = ...   % bunch all sensor objects
+                    [ego.sensor.data(ii).stand(...
+                    ~isnan(ego.sensor.data(ii).stand(:,1)),:);...
+                    ego.sensor.data(ii).mov(...
+                    ~isnan(ego.sensor.data(ii).mov(:,1)),:);...
+                    ego.sensor.data(ii).onc(...
+                    ~isnan(ego.sensor.data(ii).onc(:,1)),:)]; 
+                
                 sensor_f.data(ii).stand = ...   % standing objects
-                    sensor.data(ii).stand(~isnan(sensor.data(ii).stand(:,1)),:); 
+                    ego.sensor.data(ii).stand(...
+                    ~isnan(ego.sensor.data(ii).stand(:,1)),:); 
                 sensor_f.data(ii).mov = ...     % moving objects
-                    sensor.data(ii).mov(~isnan(sensor.data(ii).mov(:,1)),:);
+                    ego.sensor.data(ii).mov(...
+                    ~isnan(ego.sensor.data(ii).mov(:,1)),:);
                 sensor_f.data(ii).onc = ....    % oncoming objects
-                    sensor.data(ii).onc(~isnan(sensor.data(ii).onc(:,1)),:);
-                set(sensor.m(ii),'visible','on')
+                    ego.sensor.data(ii).onc(...
+                    ~isnan(ego.sensor.data(ii).onc(:,1)),:);
+                set(ego.sensor.m(ii),'visible','on')
             else
                 sensor_f.active(ii) = false;
-                set(sensor.m(ii),'visible','off')
+                set(ego.sensor.m(ii),'visible','off')
             end
         end
+        
+        % rotation matrix (degrees)
+        rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);... 
+                                   sind(t)  cosd(t)]';
+        ego_f.Dtheta = ego.Dtheta/pi*180;       % angular variation
+        ego_x = ego.x(t,0);                     % current x position
+        ego_x_1 = ego.x(t-dt,0);                % previous x position
+        % calculate ego xy velocity
+        v_xy = rd(ego_x-ego_x_1,ego.y(ego_x)-ego.y(ego_x_1),...
+            (pi/2-ego.theta)/pi*180)/dt;
+        ego_f.v_xy = v_xy([2 1]) .* [1 -1];
+        ego_f.v = sqrt(ego_f.v_xy(1)^2 + ego_f.v_xy(2)^2); % ego speed
+        ego_f.dt = dt;                          % cycle duration
     end
 
-    function update_plot_dynamic_user(stand,stand_u,mov,mov_u,onc,onc_u)
+    function update_plot_dynamic_user(...
+            ego,obj_u,stand,stand_u,mov,mov_u,onc,onc_u)
         
         % get interface from base workspace
         interface = evalin('base','sim_world_data.interface');
@@ -206,36 +237,61 @@ function sim_world()
                 get(interface.figures.main.checkboxes.controls_main_showSensor_FR,'value'),...
                 get(interface.figures.main.checkboxes.controls_main_showSensor_RL,'value'),...
                 get(interface.figures.main.checkboxes.controls_main_showSensor_RR,'value')])
-            set(stand.m.dynamic_user,...
-                'xdata',stand_u(:,2),'ydata',stand_u(:,1),'zdata',stand_u(:,3)+2,...
-                'visible','on')
-            set(mov.m.dynamic_user,...
-                'xdata',mov_u(:,2),'ydata',mov_u(:,1),'zdata',mov_u(:,3),...
-                'visible','on')
-            set(onc.m.dynamic_user,...
-                'xdata',onc_u(:,2),'ydata',onc_u(:,1),'zdata',onc_u(:,3),...
-                'visible','on')
+            if ~isempty(obj_u)
+                set(ego.m.dynamic_user,...
+                    'visible','on',...
+                    'xdata',obj_u(:,2),'ydata',obj_u(:,1),'zdata',obj_u(:,3)+2)
+            else
+                set(ego.m.dynamic_user,'visible','off')
+            end
+            if ~isempty(stand_u)
+                set(stand.m.dynamic_user,...
+                    'visible','on',...
+                    'xdata',stand_u(:,2),'ydata',stand_u(:,1),'zdata',stand_u(:,3)+2)
+            else
+                set(stand.m.dynamic_user,'visible','off')
+            end
+            if ~isempty(mov_u)
+                set(mov.m.dynamic_user,...
+                    'visible','on',...
+                    'xdata',mov_u(:,2),'ydata',mov_u(:,1),'zdata',mov_u(:,3)+2)
+            else
+                set(mov.m.dynamic_user,'visible','off')
+            end
+            if ~isempty(onc_u)
+                set(onc.m.dynamic_user,...
+                    'visible','on',...
+                    'xdata',onc_u(:,2),'ydata',onc_u(:,1),'zdata',onc_u(:,3)+2)
+            else
+                set(onc.m.dynamic_user,'visible','off')
+            end
         else
+            set(ego.m.dynamic_user,'visible','off')
             set(stand.m.dynamic_user,'visible','off')
             set(mov.m.dynamic_user,'visible','off')
             set(onc.m.dynamic_user,'visible','off')
         end
     end
 
-    function [stand_u,mov_u,onc_u] = calculate_user_z(stand_u,mov_u,onc_u,...
+    function [obj_u,stand_u,mov_u,onc_u] = calculate_user_z(obj_u,stand_u,mov_u,onc_u,...
                 road_area,ego,interface)
-            if ~isempty(stand_u)
+            if ~isempty(obj_u)
                 if get(interface.figures.main.sliders.ax_dynamic_tilt,'value')...
                         < 70
                     % calculate standing object z in their original position
                     %   1) cancel ego rotation
+                    [obj_x,obj_y] = dynamic_transform_coordinates(...
+                        obj_u(:,1),obj_u(:,2),0,0,-ego.theta);
                     [stand_x,stand_y] = dynamic_transform_coordinates(...
                         stand_u(:,1),stand_u(:,2),0,0,-ego.theta);
                     %   2) calculate road_area z in the object positions
+                    obj_u = [obj_u road_area.Z(...
+                        obj_x,ego.x_1,obj_y,ego.y_1)];
                     stand_u = [stand_u road_area.Z(...
                         stand_x,ego.x_1,stand_y,ego.y_1)];
 
                 else % approximate standing object z to zero
+                    obj_u = [obj_u zeros(size(obj_u,1),1)];
                     stand_u = [stand_u zeros(size(stand_u,1),1)];
                 end
 
@@ -372,6 +428,7 @@ function sim_world()
         obj.x = @(t,x_1) x_t(obj.v,t,x_1); % (m) ego x position;
         obj.y = @(x) road.y(x); % (m) ego y position
         obj.x_1 = 0;            % (m) ego's last x
+        obj.theta = 0;          % ego orientation
         % ego cube (visualization)
         obj.cube.dimensions = [4 1.9 1.6];
         obj.cube.center = [0 0 0];
@@ -637,6 +694,8 @@ function sim_world()
                 'parent',interface.figures.main.axes.dynamic);
         end
         %   user-detected objects
+        ego.m.dynamic_user = plot3(interface.figures.main.axes.dynamic,...
+            0,0,0,'sr','visible','off','markersize',15,'linewidth',2);
         stand.m.dynamic_user = plot3(interface.figures.main.axes.dynamic,...
             0,0,0,'sg','visible','off','markersize',15,'linewidth',2);
         mov.m.dynamic_user = plot3(interface.figures.main.axes.dynamic,...
