@@ -667,7 +667,8 @@ function sim_world()
             case 'patch'
                 terrain_3D = false;
                 set(road_area.m.dynamic_patch,'visible','on',...
-                    'xData',road_area_y,'yData',road_area_x)
+                    'xData',road_area_y,'yData',road_area_x,...
+                    'zData',-0.2*ones(size(road_area_y)))
                 set(road_area.m.dynamic_surf_edge,'visible','off')
                 set(road_area.m.dynamic_surf,'visible','off')
             case 'surf'
@@ -1100,7 +1101,7 @@ function sim_world()
         % choose road area type
         if get(interface.figures.main.sliders.ax_dynamic_tilt,'value') > 70
             type = 'patch';
-            x = xl(1):diff(road.x(1:2)):xl(2);  % initialize x array
+            x = xl(1):diff(road.x(1:2))*15:xl(2);  % initialize x array
             % find road area coverage
             [ra_l,ra_r] = find_road_points(... 
                 road_edge_x,road_edge_y,ego,ego_y,x);
