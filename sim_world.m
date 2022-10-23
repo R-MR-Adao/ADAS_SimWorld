@@ -128,10 +128,17 @@ function sim_world()
                 road_area.X(:),road_area.Y(:),0,0, theta);
         
         % reconstruct road area coordinates
-        road_area_x = reshape(ra_x,size(road_area.X));
-        road_area_y = reshape(ra_y,size(road_area.Y));
-        road_area_z = road_area.Z(...
-            road_area.X,ego.x_1,road_area.Y,ego_y);
+        switch road_area.type
+            case 'patch'
+                road_area_x = ra_x;
+                road_area_y = ra_y;
+                road_area_z = [];
+            case 'surf'
+                road_area_x = reshape(ra_x,size(road_area.X));
+                road_area_y = reshape(ra_y,size(road_area.Y));
+                road_area_z = road_area.Z(...
+                    road_area.X,ego.x_1,road_area.Y,ego_y);
+        end
         
         % find data in sensor frames
         for ii = 1 : ego.sensor.n
@@ -313,17 +320,50 @@ function sim_world()
         lane.y = @(x) [lane_l.y(x) nan lane_r.y(x)];
     end
 
-    function [road_area, X, Y]= init_road_area(xl,yl,road)
-        n = 240;
-        a = 20;
-        c = 50;
-        x = linspace(xl(1),xl(2),n);
-        y = linspace(yl(1),yl(2),n);
-        [X,Y] = meshgrid(x,y);        
-        road_area.X = X;
-        road_area.Y = Y;
-        road_area.Z_ = @(X,Y) a*exp(-((Y - road.y(X))/c).^2);
-        road_area.Z = @(X,x0,Y,y0) - a + road_area.Z_(X+x0,Y+y0-3.75);
+    function [road_area, X, Y] = init_road_area(xl,yl,road,type,x,ra_l,ra_r)
+        n = 240;                            % surf number of pixels
+        a = 20;                             % terrain dip amplitude
+        c = 50;                             % terrain dip width
+        
+        % set default road_area type to surf
+        if nargin() < 4 
+            type = 'surf';
+        end
+                
+        switch type 
+            case 'patch'    % flat surface
+                % nan-free range
+                rg = ~logical(isnan(ra_r) + isnan(ra_l));
+                % define lines around road edge
+                %   define X and Y outputs
+                X =...
+                    [xl(1) x(rg) xl(2) xl(1)...
+                     xl(1) x(rg) xl(2) xl(1)];
+                Y =...
+                    [yl(2) ra_l(rg) yl(2) yl(2)...
+                     yl(1) ra_r(rg) yl(1) yl(1)];
+                
+                % store X and Y in raod_area struct 
+                road_area.X = X;
+                road_area.Y = Y;
+                
+                % dummy function for non-existent terrain topography
+                road_area.Z = @(X,x0,Y,y0) []; 
+            
+            case 'surf'     % 3D terrain
+                % X,T matrixes for surf plot
+                [X,Y] = meshgrid(linspace(xl(1),xl(2),n),linspace(yl(1),yl(2),n));        
+                road_area.X = X;                    % x matrix
+                road_area.Y = Y;                    % y matrix
+                
+                % terrain topography equations
+                road_area.Z_ = @(X,Y) a*exp(-((Y - road.y(X))/c).^2); % 2D Gaussian
+                
+                % subtract amplitude and apply 3.75 m correction
+                road_area.Z = @(X,x0,Y,y0) - a + road_area.Z_(X+x0,Y+y0-3.75);
+                
+        end
+        road_area.type = type;
     end
     
     function obj = init_ego(x_t, road)
@@ -485,11 +525,10 @@ function sim_world()
             interface,road,road_area,re_x,re_y,ego,e_y,xl,yl);
 
         % static axes plots:
-        road_area.m.static = imagesc(...
-            road_area.X(1,:),road_area.Y(:,1),road_area.map,...
+        road_area.m.static = patch(road_area.X,road_area.Y,[50 150 0]/270,...
+            'facealpha',0.7,...
             'parent',interface.figures.main.axes.static);
         colormap([bsxfun(@times,[50 150 0]/270,ones(100,3));[1 1 1]*0.3])
-        alpha(road_area.m.static,0.7)
         
         road.m.static = plot(interface.figures.main.axes.static,...
             r_x, r_y,'w','linewidth',2,'visible','off');
@@ -508,15 +547,20 @@ function sim_world()
        
         % dynamic axes plots
         %   road area
-        road_area.m.dynamic = surf(...
+        road_area.m.dynamic_surf = surf(...
             [0 0],[0 0],zeros(2),...
             'edgecolor','none',...
             'facealpha',0.7,...
             'parent',interface.figures.main.axes.dynamic);
-        road_area.m.dynamic_edge = surf(...
+        road_area.m.dynamic_surf_edge = surf(...
             [0 0],[0 0],zeros(2),...
             'facecolor','none',...
             'edgecolor',[0.7 1 0]*0.9,... 
+            'parent',interface.figures.main.axes.dynamic);
+        road_area.m.dynamic_patch = patch(...
+            0,0,[50 150 0]/270,...
+            'edgecolor','none',...
+            'facealpha',0.7,...
             'parent',interface.figures.main.axes.dynamic);
 
         % sensor fov
@@ -617,19 +661,35 @@ function sim_world()
         set(road.m.dynamic, 'xData',road_y, 'yData',road_x)
         set(lane.m.dynamic, 'xData',lane_y, 'yData',lane_x)
         set(road_edge.m.dynamic, 'xData',road_edge_y, 'yData',road_edge_x)
-        set(road_area.m.dynamic, 'xData',road_area_y, 'yData',road_area_x,...
-            'cdata',road_area.map,'zdata',road_area_z)
-        if get(interface.figures.main.sliders.ax_dynamic_tilt,'value') < 70
-            d = 1:3:size(road_area_y,1);
-            edge = road_area_z(d,d);
-            edge(road_area.map(d,d) == 0) = nan;
-            set(road_area.m.dynamic_edge,...
-                'visible','on',...
-                'xData',road_area_y(d,d), 'yData',road_area_x(d,d),...
-                'cdata',road_area.map(d,d),'zdata', + edge)
-        else
-            set(road_area.m.dynamic_edge,'visible','off')
+        
+        % update rooad area depending on user-defined tilt angle
+        switch road_area.type
+            case 'patch'
+                terrain_3D = false;
+                set(road_area.m.dynamic_patch,'visible','on',...
+                    'xData',road_area_y,'yData',road_area_x)
+                set(road_area.m.dynamic_surf_edge,'visible','off')
+                set(road_area.m.dynamic_surf,'visible','off')
+            case 'surf'
+                terrain_3D = true;
+                set(road_area.m.dynamic_surf,...
+                    'visible','on',...
+                    'xData',road_area_y, 'yData',road_area_x,...
+                    'cdata',road_area.map,'zdata',road_area_z)
+                if get(interface.figures.main.sliders.ax_dynamic_tilt,'value') < 70
+                    d = 1:3:size(road_area_y,1);
+                    edge = road_area_z(d,d);
+                    edge(road_area.map(d,d) == 0) = nan;
+                    set(road_area.m.dynamic_surf_edge,...
+                        'visible','on',...
+                        'xData',road_area_y(d,d), 'yData',road_area_x(d,d),...
+                        'cdata',road_area.map(d,d),'zdata', + edge)
+                else
+                    set(road_area.m.dynamic_surf_edge,'visible','off')
+                end
+                set(road_area.m.dynamic_patch,'visible','off')
         end
+
         for ii = 1 : stand.n
             if (fov(1,1) <= stand_x(ii)) && (stand_x(ii) <= fov(2,1)) && ...
                     (fov(1,2) <= stand_y(ii)) && (stand_y(ii) <= fov(2,2))
@@ -637,7 +697,8 @@ function sim_world()
                     'visible','on',...
                     'xData',stand.cube(ii).y(stand.cube(ii).idx),...
                     'yData',stand.cube(ii).x(stand.cube(ii).idx),...
-                    'zData',stand.cube(ii).z(stand.cube(ii).idx)+stand.z(ii));
+                    'zData',stand.cube(ii).z(stand.cube(ii).idx)+...
+                    stand.z(ii)*terrain_3D);
             else
                 set(stand.m.dynamic(ii),'visible','off');
             end
@@ -1014,14 +1075,14 @@ function sim_world()
     
     function [ra_l,ra_r] = find_road_points(...
             road_edge_x,road_edge_y,ego,ego_y,p_x)
-        %   find left edge
+        % find left edge
         splits = find(isnan(road_edge_x)) + [-1 1];
         ra_l = [road_edge_x(1:splits(1))' road_edge_y(1:splits(1))'];
         
-        %   find right edge
+        % find right edge
         ra_r = [road_edge_x(splits(2):end)' road_edge_y(splits(2):end)'];
         
-        %   interpolate y coordinates
+        % interpolate y coordinates
         ra_l = interp1(ra_l(:,1),ra_l(:,2),p_x+ego.x_1)-ego_y;
         ra_r = interp1(ra_r(:,1),ra_r(:,2),p_x+ego.x_1)-ego_y;
     end
@@ -1030,24 +1091,42 @@ function sim_world()
             interface,road,road_area,road_edge_x,road_edge_y,ego,ego_y,xl,yl)
         
         if nargin() < 8
-            % initialize road area
+            % dynamic x, y limits
             xl = get(interface.figures.main.axes.dynamic,'xlim');
-            xl = mean(xl) + [-1 1]*diff(xl)*1.1; % expand to fit y span
-            [~,road_area.X, road_area.Y] = init_road_area(xl,xl,road);
+            xl = mean(xl) + [-1 1]*diff(xl)*1.1; % expand to fit y span   
+            yl = xl;
+        end
+               
+        % choose road area type
+        if get(interface.figures.main.sliders.ax_dynamic_tilt,'value') > 70
+            type = 'patch';
+            x = xl(1):diff(road.x(1:2)):xl(2);  % initialize x array
+            % find road area coverage
+            [ra_l,ra_r] = find_road_points(... 
+                road_edge_x,road_edge_y,ego,ego_y,x);
+                
+            [~,road_area.X, road_area.Y] = init_road_area(...
+                xl,yl,road,type,x,ra_l,ra_r);
         else
-            [~,road_area.X, road_area.Y] = init_road_area(xl,yl,road);
+            type = 'surf';
+            % initialize road area
+            [~,road_area.X, road_area.Y] = init_road_area(xl,yl,road,type);
+            
+            % find road area coverage
+            [ra_l,ra_r] = find_road_points(...
+                    road_edge_x,road_edge_y,ego,ego_y,...
+                        road_area.X(1,:));
+            
+            road_area.map = -0.2*ones(size(road_area.X));
+            % subtract road from map for transparency
+            road_area.map(logical(...
+                (bsxfun(@times,ra_r,ones(size(road_area.X)))<=road_area.Y).*...
+                (road_area.Y<bsxfun(@times,ra_l,ones(size(road_area.X))))...
+                )) = 0;
         end
         
-        [ra_l,ra_r] = find_road_points(...
-            road_edge_x,road_edge_y,ego,ego_y,...
-                road_area.X(1,:));
-        
-        road_area.map = -0.2*ones(size(road_area.X));
-        % subtract road from map for transparency
-        road_area.map(logical(...
-            (bsxfun(@times,ra_r,ones(size(road_area.X)))<=road_area.Y).*...
-            (road_area.Y<bsxfun(@times,ra_l,ones(size(road_area.X))))...
-            )) = 0;
+        % set road area type
+        road_area.type = type;
         
     end
 
@@ -1314,13 +1393,13 @@ function sim_world()
         end
         
         % initialize simulation animation variables
-        [interface, road,lane,road_edges,road_area,ego,stand,mov,onc] = ...
+        [interface,road,lane,road_edge,road_area,ego,stand,mov,onc] = ...
                     init_plots(interface,road,lane,road_edges,road_area,...
                     ego,stand,mov,onc);
         
         % output data to base workspace
         output_sim_data(...
-            interface,road,lane,road_edges,road_area,...
+            interface,road,lane,road_edge,road_area,...
             ego,stand,mov,onc,t,dt,road_tail)
         
         % run one simulation cycle to finish initialization
