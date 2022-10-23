@@ -75,8 +75,8 @@ function sim_world()
         lane_x = lane.x(road_x);
         lane_y = lane.y(road_x);
         
-        road_edge_x = road_edge.x(road_x);
-        road_edge_y = road_edge.y(road_x);
+        road_edge_x = road_edge.x(road_x(1:5:end));
+        road_edge_y = road_edge.y(road_x(1:5:end));
         
         % update road area
         road_area = find_road_area(...
@@ -505,13 +505,25 @@ function sim_world()
         re_x = road_edge.x(r_x);      % road edge x array
         re_y = road_edge.y(r_x);      % road edge y array
         
+        % extrapolate re_x and re_x to full x range
+        [re_l,re_r,re_c] = split_road_edges(re_x,re_y);
+        xi = r_x(1:10:end)';        % lower resolution array for plotting
+        re_l = [xi interp1(re_l(:,1),re_l(:,2),xi,'pchirp','extrap')];
+        re_r = [xi interp1(re_r(:,1),re_r(:,2),xi,'pchirp','extrap')];
+        re_c = [xi interp1(re_c(:,1),re_c(:,2),xi,'pchirp','extrap')];
+        %reconstruct road edges
+        re_x = [re_l(:,1);nan;re_c(:,1);nan;re_r(:,1)]';
+        re_y = [re_l(:,2);nan;re_c(:,2);nan;re_r(:,2)]';
+        
         e_x = ego.x(0,ego.x_1); % ego x position
         e_y = ego.y(e_x);       % ego y position
         
         s_x = stand.x;          % standing object x array
         s_y = stand.y;          % standing object y array
+        
         % find objects standing in the road
         [ra_l,ra_r] = find_road_points(re_x,re_y,ego,e_y,s_x);
+        
         % remove objects standing in the road
         stand.x(logical((ra_r < s_y).*(s_y < ra_l))) = [];
         stand.y(logical((ra_r < s_y).*(s_y < ra_l))) = [];
@@ -1085,8 +1097,8 @@ function sim_world()
             'foregroundcolor',interface.colors.font)
     end
     
-    function [ra_l,ra_r] = find_road_points(...
-            road_edge_x,road_edge_y,ego,ego_y,p_x)
+    function [ra_l,ra_r,ra_c] = split_road_edges(road_edge_x,road_edge_y)
+        
         % find left edge
         splits = find(isnan(road_edge_x)) + [-1 1];
         ra_l = [road_edge_x(1:splits(1))' road_edge_y(1:splits(1))'];
@@ -1094,9 +1106,20 @@ function sim_world()
         % find right edge
         ra_r = [road_edge_x(splits(2):end)' road_edge_y(splits(2):end)'];
         
+        % find road center
+        ra_c = [road_edge_x(splits(1)+2:splits(2)-2)'...
+                road_edge_y(splits(1)+2:splits(2)-2)'];
+    end
+
+    function [ra_l,ra_r] = find_road_points(...
+            road_edge_x,road_edge_y,ego,ego_y,p_x)
+        
+        % split road esges
+        [ra_l,ra_r] = split_road_edges(road_edge_x,road_edge_y);
+        
         % interpolate y coordinates
-        ra_l = interp1(ra_l(:,1),ra_l(:,2),p_x+ego.x_1)-ego_y;
-        ra_r = interp1(ra_r(:,1),ra_r(:,2),p_x+ego.x_1)-ego_y;
+        ra_l = interp1(ra_l(:,1),ra_l(:,2),p_x+ego.x_1,'pchirp','extrap')-ego_y;
+        ra_r = interp1(ra_r(:,1),ra_r(:,2),p_x+ego.x_1,'pchirp','extrap')-ego_y;
     end
 
     function road_area = find_road_area(...
