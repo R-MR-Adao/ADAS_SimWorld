@@ -487,7 +487,7 @@ function sim_world()
         end
     end
     
-    function obj = init_mov_objects(n, direction, x_t, ego, road, dt)        
+    function obj = init_mov_objects(n, direction, x_t, ego, road)        
         % moving objects
         obj.n = n;
         obj.v = direction*ego.v*(rand(n,1)+0.5); % (m/s) moving object speed
@@ -1263,8 +1263,6 @@ function sim_world()
         fID = fopen(fname,'w');         % file ID
         eTxt = get(interface.figures.main.edits.user_code,'string');
         
-        fTxt = '';
-        
         for ii = 1 : length(eTxt)
            fprintf(fID,'%s\n', eTxt{ii});
         end
@@ -1521,8 +1519,8 @@ function sim_world()
 
         % initialize moving and oncoming objects
         mov_n_objects = 2;      % number of moving objects
-        mov = init_mov_objects(mov_n_objects-1, 1,x_t,ego,road,dt);% moving obj
-        onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road,dt);% oncoming obj
+        mov = init_mov_objects(mov_n_objects-1, 1,x_t,ego,road);% moving obj
+        onc = init_mov_objects(mov_n_objects,-1,x_t,ego,road);% oncoming obj
         
         % reset plots if already existent
         if isfield(interface.figures.main,'ax_init') % not yet initialized
