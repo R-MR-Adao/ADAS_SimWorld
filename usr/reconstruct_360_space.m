@@ -6,79 +6,79 @@ function [obj,stand,mov,onc] = reconstruct_360_space(sensor,ego)
     %          standing, moving and oncoming detections in the
     %          reconstructed space
 
-    % access sensor detections in base workspace
-    assignin('base','sensor',sensor);
-    assignin('base','ego',ego);
-
     % get identified object list from previous cycle
-    obj_prev = get_obj_prev(sensor);
+    obj_prev = get_obj_prev(sensor,ego);    % object list fromprevious cycle
 
+    %       [x,y]   % code outputs
+    obj =   [   ];  % list of objects with transformed cooedinates
+    stand = [   ];  % list of classified standing objects (do not move)
+    mov =   [   ];  % list of classified moving objects   (move away)
+    onc =   [   ];  % list of classified oncoming objects (move towards us)
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %                   Apply coordinate transformation                   %
+    %                      The asignment begins here!                     %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
     % rotation matrix (degrees)
     rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);...
         sind(t)  cosd(t)]';
-
-    %       [x,y]
-    obj =   [   ];
-    stand = [   ];
-    mov =   [   ];
-    onc =   [   ];
-
+    
     for ii = 1 : sensor.n
         if sensor.active(ii)
-            theta = sensor.theta(ii);
-
-            obj_x = sensor.data(ii).obj(:,1);
-            obj_y = sensor.data(ii).obj(:,2);
-            obj = cat(1,obj,rd(obj_x,obj_y,theta));
-
+            theta = sensor.theta(ii);               % sensr mounting angle
+            obj_x = sensor.data(ii).obj(:,1);       % object position x
+            obj_y = sensor.data(ii).obj(:,2);       % object position y
+            obj = cat(1,obj,rd(obj_x,obj_y,theta)); % object rotated
         end
     end
 
     if ~isempty(obj)
-
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %              Calculate object dynamic properties                %
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %threshold definitions
+        thresh_d_max = 2.5;       % maximum accepted object displacement
+        thresh_v_stand_max = 0.2; % m/s max standing object speed
+        thresh_v_mov_min = 7;     % m/s min moving object x velocity
+        
         % compensate ego rotation in previous cycle
         obj_prev = rd(obj_prev(:,1),obj_prev(:,2),ego.Dtheta);
-
-        d_x = bsxfun(@minus,obj(:,1), obj_prev(:,1)');
-        d_y = bsxfun(@minus,obj(:,2), obj_prev(:,2)');
-        d_mat = sqrt(d_x.^2 + d_y.^2);
+        
+        % calculate displacement matrix
+        d_x = bsxfun(@minus,obj(:,1), obj_prev(:,1)');  % displacement x
+        d_y = bsxfun(@minus,obj(:,2), obj_prev(:,2)');  % displacement x
+        d_mat = sqrt(d_x.^2 + d_y.^2);                  % displacement abs
 
         % find the closest object from the previous cycle
-        [dmin,imin] = min(abs(d_mat),[],2);
-
-        % remove objects no longer in the sensors FoV
-        %imin(imin > length(imin)) = [];
-
-        % obtain object index
-        ind = sub2ind(size(d_x), (1:length(imin))', imin);
+        [dmin,imin] = min(abs(d_mat),[],2);                 % min d and ind
+        ind = sub2ind(size(d_x), (1:length(imin))', imin);  % matrix ind
 
         % calculate object x y velocity
-        obj_v_xy = bsxfun(@plus,[d_x(ind) d_y(ind)]/ego.dt,ego.v_xy);
+        obj_v = bsxfun(@plus,[d_x(ind),d_y(ind)]/ego.dt,ego.v_xy);% vel xy
 
-        % eliminate untracked objects
-        d_max_thresh = 2.5;                 % maximum accepted displacement
-        obj_v_xy(dmin > d_max_thresh,:) = [];
+        % identify tracked objects
+        obj_tracked = obj(dmin <= thresh_d_max,:);  % tracked objects list
+        obj_v(dmin > thresh_d_max,:) = [];          % tracked objects speed
 
         % calculate absolute velocity
-        obj_v = sqrt(obj_v_xy(:,1).^2 + obj_v_xy(:,2).^2);
+        obj_speed = sqrt(obj_v(:,1).^2 + obj_v(:,2).^2); % obect speed
+        obj_v_sign = obj_speed .* sign(obj_v(:,1)); % x-dir signed speed
         
-        % object classification
-        %     define velocity thresholds
-        v_stand_max_thresh = 0.1; % m/s absolute speed
-        v_mov_max_thresh = -5;     % m/s in x direction
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %                     Object classification                       %
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
         % standing objetcs
-        stand_condition = obj_v < v_stand_max_thresh;
-        stand = obj(stand_condition,:);
+        stand = obj_tracked(obj_speed < thresh_v_stand_max,:);
 
         % moving objects
-        mov_condition = logical((obj_v_xy(:,1) > v_mov_max_thresh).*(~stand_condition));
-        mov = obj(mov_condition,:);
+        mov = obj_tracked(obj_v_sign > thresh_v_mov_min,:);
         
         % oncoming objects
-        onc_condition = logical((obj_v_xy(:,1) <= v_mov_max_thresh).*(~stand_condition));
-        onc = obj(onc_condition,:);
-
+        onc = obj_tracked(obj_v_sign < -thresh_v_mov_min,:);
+        
+        % output updated object list to base workspace
         assignin('base','obj_prev',obj);
     end
 end

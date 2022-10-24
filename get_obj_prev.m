@@ -1,4 +1,8 @@
-function obj_prev = get_obj_prev(sensor)
+function obj_prev = get_obj_prev(sensor,ego)
+    
+    % access sensor detections in base workspace
+    assignin('base','sensor',sensor);
+    assignin('base','ego',ego);
     
     try % previous object list already initialized
         obj_prev = evalin('base','obj_prev');

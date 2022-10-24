@@ -36,7 +36,8 @@ function sim_world()
             
             % draw recovered coordinates
             if get(interface.figures.main.buttons.controls_main_play,'value')
-                update_plot_dynamic_user(ego,obj_u,stand,stand_u,mov,mov_u,onc,onc_u);
+                update_plot_dynamic_user(...
+                    ego,obj_u,stand,stand_u,mov,mov_u,onc,onc_u);
             end
 
             % increment time
@@ -53,7 +54,8 @@ function sim_world()
     end
     
     function [road,lane,road_edge,road_area,ego,stand,mov,onc,road_tail] =...
-            simulation_run(interface,t,dt,road,lane,road_edge,road_area,ego,stand,mov,onc,road_tail)
+            simulation_run(interface,t,dt,...
+            road,lane,road_edge,road_area,ego,stand,mov,onc,road_tail)
         
         % ****************** update data for static plot ******************
         ego_x =  ego.x(t,ego.x_1);
