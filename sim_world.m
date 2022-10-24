@@ -26,8 +26,9 @@ function sim_world()
                 interface,ego,t,dt);
             
             % recover 360 degree coordinate space
-            [obj_u,stand_u,mov_u,onc_u] = reconstruct_360_space(...
-                sensor_f,ego_f);
+            [obj_u,stand_u,mov_u,onc_u] = eval(...
+                [interface.files.reconstruct_360_space.func,...
+                '(sensor_f,ego_f)']);
             
             % calculate z coordinates for user detections
             [obj_u,stand_u,mov_u,onc_u] = calculate_user_z(...
@@ -985,7 +986,8 @@ function sim_world()
             interface.figures.main.popups.user_code_selectFunction,interface)
         
         % filename config
-        interface.files.reconstruct_360_space = 'reconstruct_360_space.m';
+        interface.files.reconstruct_360_space.path = 'usr/reconstruct_360_space.m';
+        interface.files.reconstruct_360_space.func = 'reconstruct_360_space';
         
         % load file to user code textbox
         sim_world_data.interface = interface;
@@ -1405,7 +1407,7 @@ function sim_world()
         interface = evalin('base','sim_world_data.interface');
         set(interface.figures.main.buttons.controls_main_step,'value',0)
         controls_main_play_Callback(...
-            source,[])
+            source)
     end
 
     function axes_dynamic_perspective_Callback(source,~)
@@ -1556,14 +1558,14 @@ function sim_world()
         proceed = true;
         switch ui_get_user_code_Function(source)
             case 'Reconstruct 360'
-                fname = interface.files.reconstruct_360_space;
+                path = interface.files.reconstruct_360_space.path;
             otherwise
                 proceed = false;
         end
         
         if proceed
             % load code from file
-            init_user_code(interface, fname)
+            init_user_code(interface, path)
 
             % assign to base workspace
             sim_world_data.interface = interface;
@@ -1573,11 +1575,18 @@ function sim_world()
 
     function user_code_load_Callback(~,~)
         %prompt user to select file
-        [fname, pname] = uigetfile('*.m');
+        [filename, pathname] = uigetfile('*.m');
         
-        if fname
-            % join path to filename
-            fname = [pname '\' fname];
+        if filename
+            
+            % add folder to search path
+            addpath(pathname)
+            
+            % build bath name
+            path = [pathname filename];
+            
+            % get function name
+            func = filename(1:end-2);
             
             % load interface from base workspace
             sim_world_data = evalin('base','sim_world_data');
@@ -1585,15 +1594,23 @@ function sim_world()
 
             switch ui_get_user_code_Function([])
                 case 'Reconstruct 360'
-                    interface.files.reconstruct_360_space = fname;
+                    interface.files.reconstruct_360_space.path = path;
+                    interface.files.reconstruct_360_space.func = func;
             end
-
-            % update interface in base workspace
             
+            % enable save button
+            set(interface.figures.main.buttons.user_code_save,'enable','on');
+
+            % enable autosave checkbox
+            set(interface.figures.main.checkboxes.user_code_autosave,...
+                'enable','on')
+            
+            % update interface in base workspace
             sim_world_data.interface = interface;
             assignin('base','sim_world_data',sim_world_data)
 
-            user_code_selectFunction_Callback()
+            user_code_selectFunction_Callback(...
+                interface.figures.main.popups.user_code_selectFunction)
         end
         
     end
@@ -1602,19 +1619,25 @@ function sim_world()
         
         % load interface from base workspace
         interface = evalin('base','sim_world_data.interface');
-        fname = interface.files.reconstruct_360_space;
+        path = interface.files.reconstruct_360_space.path;
         
         % save file
-        save_user_code(interface, fname)
+        save_user_code(interface, path)
     end
 
     function user_code_saveas_Callback(~,~)
         %prompt user to select file
-        [fname, pname] = uiputfile('*.m');
+        [filename, pathname] = uiputfile('*.m');
         
-        if fname
-            % join path to filename
-            fname = [pname '\' fname];
+        if filename
+            % add folder to search path
+            addpath(pathname)
+            
+            % build bath name
+            path = [pathname filename];
+            
+            % get function name
+            func = filename(1:end-2);
             
             % load interface from base workspace
             sim_world_data = evalin('base','sim_world_data');
@@ -1622,21 +1645,25 @@ function sim_world()
 
             switch ui_get_user_code_Function([])
                 case 'Reconstruct 360'
-                    interface.files.reconstruct_360_space = fname;
+                    interface.files.reconstruct_360_space.path = path;
+                    interface.files.reconstruct_360_space.func = func;
             end
             
             % save file
-            save_user_code(interface, fname)
+            save_user_code(interface, path)
             
+            % enable save button
             set(interface.figures.main.buttons.user_code_save,'enable','on');
 
+            % enable autosave checkbox
+            set(interface.figures.main.checkboxes.user_code_autosave,...
+                'enable','on')
+            
             % update interface in base workspace
             sim_world_data.interface = interface;
             assignin('base','sim_world_data',sim_world_data)
             
-            % enable autosave checkbox
-            set(interface.figures.main.checkboxes.user_code_autosave,...
-                'enable','on')
+            
         end
     end
     
@@ -1680,13 +1707,13 @@ function sim_world()
         end
         % apply changes
         controls_main_showSensor_cb_Callback(...
-            checkboxes.controls_main_showSensor_FL,[])
+            checkboxes.controls_main_showSensor_FL)
         controls_main_showSensor_cb_Callback(...
-            checkboxes.controls_main_showSensor_FR,[])
+            checkboxes.controls_main_showSensor_FR)
         controls_main_showSensor_cb_Callback(...
-            checkboxes.controls_main_showSensor_RL,[])
+            checkboxes.controls_main_showSensor_RL)
         controls_main_showSensor_cb_Callback(...
-            checkboxes.controls_main_showSensor_RR,[])
+            checkboxes.controls_main_showSensor_RR)
     end
 
     function controls_main_showSensor_cb_Callback(source,~)
