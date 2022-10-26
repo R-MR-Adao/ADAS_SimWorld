@@ -1306,11 +1306,10 @@ function sim_world()
         
         if nargin() < 8
             % dynamic x, y limits
-            xl = get(interface.figures.main.axes.dynamic,'xlim');
-            xl = mean(xl) + [-1 1]*diff(xl)*1.1; % expand to fit y span   
-            yl = xl;
+            yl = get(interface.figures.main.axes.dynamic,'ylim');
+            yl = mean(yl) + [-1 1]*diff(yl)*1.1; % expand to fit y span   
             % limit x interpolation range
-            xl = min(xl,road.x(end)/2);
+            xl = min(yl,road.x(end)/2);
         end
                
         % choose road area type
