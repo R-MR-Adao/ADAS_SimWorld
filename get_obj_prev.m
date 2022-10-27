@@ -10,7 +10,7 @@ function obj_prev = get_obj_prev(sensor,ego)
         obj_prev = [];
         for ii = 1 : sensor.n
             if sensor.active(ii)
-                obj_prev = cat(1,sensor.data(ii).obj);
+                obj_prev = cat(1,sensor.data{ii});
             end
         end
     end

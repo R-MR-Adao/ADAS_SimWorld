@@ -1,12 +1,13 @@
-function obj = reconstruct_360_space(sensor,ego)
-    % Reconstruct 360 EM space around the ego from the sensor measurements
-    % @param    sensor An n-sensors-long array containing the standing,
-    %           moving, and oncoming object detections in each sensor's FoV
-    % @returns  obj [x(:) y(:)]shaped arrays containing the object detections
-    %           in the reconstructed space
-
-    % get identified object list from previous cycle
-    obj_prev = get_obj_prev(sensor,ego);    % object list fromprevious cycle
+function obj = reconstruct_360_space(sensor)
+    % Reconstruct 360 EM space around the vehicle by converting object
+    % detections from the sensor-specific frame to the vehicle frame
+    %
+    % @param   sensor: An n-sensors-long array containing object
+    %                  detections in each sensor's Field of View
+    %
+    % @returns obj: [x(:) y(:)]-shaped arrays containing the object
+    %               detections in the reconstructed space 
+    %
 
     %       [x,y]   % code outputs
     obj =   [   ];  % list of objects with transformed cooedinates

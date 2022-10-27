@@ -30,7 +30,7 @@ function sim_world()
                 case 1                       % returns only rotated objects
                     obj_u = eval(...
                         [interface.files.reconstruct_360_space.func,...
-                        '(sensor_f,ego_f)']);
+                        '(sensor_f)']);
                     % define user (un)classified object lists as empty arrs
                     stand_u = [];
                     mov_u   = [];
