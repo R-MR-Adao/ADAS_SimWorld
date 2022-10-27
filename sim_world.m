@@ -325,12 +325,18 @@ function sim_world()
         data(~cond,:) = nan;
     end
     
-    function obj = init_road()
+    function obj = init_road(interface)
         obj.T = 80;            % (m) road periodicity
         obj.x = 0:0.2:240;     % (m) road x array
         obj.y = @(x) ...       % (m) road y array
             obj.T/3*sin(2*pi/obj.T*x).*cos(2*pi/obj.T/3*x);
         
+        % 3D terrain properties
+        sliders = interface.figures.main.sliders; % interface sliders
+        obj.terrain.n = 240;   % surf number of pixels
+        obj.terrain.a = ...    % terrain dip amplitude
+            get(sliders.controls_main_parameters_terrain_h,'value');
+        obj.terrain.c = 50;    % terrain dip width
     end
 
     function obj = init_mov_lane(road, off)
@@ -381,10 +387,7 @@ function sim_world()
     end
 
     function [road_area, X, Y] = init_road_area(xl,yl,road,type,x,ra_l,ra_r)
-        n = 240;                            % surf number of pixels
-        a = 20;                             % terrain dip amplitude
-        c = 50;                             % terrain dip width
-        
+       
         % set default road_area type to surf
         if nargin() < 4 
             type = 'surf';
@@ -412,15 +415,18 @@ function sim_world()
             
             case 'surf'     % 3D terrain
                 % X,T matrixes for surf plot
-                [X,Y] = meshgrid(linspace(xl(1),xl(2),n),linspace(yl(1),yl(2),n));        
+                [X,Y] = meshgrid(linspace(xl(1),xl(2),road.terrain.n),...
+                                 linspace(yl(1),yl(2),road.terrain.n));        
                 road_area.X = X;                    % x matrix
                 road_area.Y = Y;                    % y matrix
                 
                 % terrain topography equations
-                road_area.Z_ = @(X,Y) a*exp(-((Y - road.y(X))/c).^2); % 2D Gaussian
+                road_area.Z_ = @(X,Y)...            % 2D Gaussian
+                    road.terrain.a*exp(-((Y-road.y(X))/road.terrain.c).^2);
                 
                 % subtract amplitude and apply 3.75 m correction
-                road_area.Z = @(X,x0,Y,y0) - a + road_area.Z_(X+x0,Y+y0-3.75);
+                road_area.Z = @(X,x0,Y,y0)...
+                    road_area.Z_(X+x0,Y+y0-3.75) - road.terrain.a;
                 
         end
         road_area.type = type;
@@ -1159,7 +1165,7 @@ function sim_world()
         interface.figures.main.panels.controls_main_parameters = uipanel(...
             'parent',interface.figures.main.panels.controls_main,...
             'position',[0.03,0.5,0.94,0.2],...
-            'title','Simulation rending parameters');
+            'title','Simulation rendering (reset to apply)');
         init_ui_style(...
             interface.figures.main.panels.controls_main_parameters,...
             interface)
@@ -1250,6 +1256,50 @@ function sim_world()
             'callback',@controls_main_parameters_stand_n_Callback);
         init_ui_style(...
             interface.figures.main.edits.controls_main_parameters_stand_n,...
+            interface)
+        
+        % 3D terrain depth
+        controls_main_parameters_terrain_h_yanchor = 0.35 ;
+        
+        % 3D terrain depth text
+        interface.figures.main.texts.controls_main_parameters_terrain_h =...
+            uicontrol(...
+            'parent',interface.figures.main.panels.controls_main_parameters,...
+            'units','normalized',...
+            'style','text',...
+            'string', '3D terrain depth', ...
+            'position', [0.03 controls_main_parameters_terrain_h_yanchor 0.35 0.1]);
+        init_ui_style(...
+            interface.figures.main.texts.controls_main_parameters_terrain_h,...
+            interface)
+        
+        % 3D terrain depth slider
+        interface.figures.main.sliders.controls_main_parameters_terrain_h =...
+            uicontrol(...
+            'parent',interface.figures.main.panels.controls_main_parameters,...
+            'units','normalized',...
+            'style','slider',...
+            'min', 0,...
+            'max', 40,...
+            'value',20,...
+            'SliderStep', [1, 5]/40,...
+            'position', [0.03 controls_main_parameters_terrain_h_yanchor-0.1 0.75 0.1],...
+            'callback',@controls_main_parameters_terrain_h_Callback);
+        init_ui_style(...
+            interface.figures.main.sliders.controls_main_parameters_terrain_h,...
+            interface)
+        
+        % 3D terrain depth edit
+        interface.figures.main.edits.controls_main_parameters_terrain_h =...
+            uicontrol(...
+            'parent',interface.figures.main.panels.controls_main_parameters,...
+            'units','normalized',...
+            'style','edit',...
+            'string', '20', ...
+            'position', [0.81 controls_main_parameters_terrain_h_yanchor-0.1 0.16 0.1],...
+            'callback',@controls_main_parameters_terrain_h_Callback);
+        init_ui_style(...
+            interface.figures.main.edits.controls_main_parameters_terrain_h,...
             interface)
         
         % assign interface to base workspace
@@ -1600,7 +1650,7 @@ function sim_world()
         t = 0;       % (s) time
     
         % initialize road map
-        road = init_road();
+        road = init_road(interface);
         road_tail = road.x(round(end/2));	% (m) road tail behind ego
         
         % initialize lanes and road edges
@@ -1895,6 +1945,21 @@ function sim_world()
             ctrl.edits.controls_main_parameters_stand_n,...
             @round);
         
+    end
+
+    function controls_main_parameters_terrain_h_Callback(source,~)
+        % get controls from base workspace
+        ctrl = evalin('base','sim_world_data.interface.figures.main');
+        
+        % round to two decimal places. Push to zero if < 5
+        func = @(v) round(v,2).* (v >= 5);
+        
+        % match slider to edit
+        match_slider_2_edit(...
+            source,...
+            ctrl.sliders.controls_main_parameters_terrain_h,...
+            ctrl.edits.controls_main_parameters_terrain_h,...
+            func);
     end
 
     function f_CloseRequestFcn(source,~)
