@@ -611,7 +611,6 @@ function sim_world()
         road_area.m.static = patch(road_area.X,road_area.Y,[50 150 0]/270,...
             'facealpha',0.7,...
             'parent',interface.figures.main.axes.static);
-        colormap([bsxfun(@times,[50 150 0]/270,ones(100,3));[1 1 1]*0.3])
         
         road.m.static = plot(interface.figures.main.axes.static,...
             r_x, r_y,'w','linewidth',2,'visible','off');
@@ -855,6 +854,8 @@ function sim_world()
         interface.colors.font             = [1 1 1]*1;
         interface.colors.code_background  = [1 1 1]*0.2;
         interface.colors.code_font        = [0.9 1 0.8];
+        
+        % visu figure
         interface.figures.visu.f = figure(...
             'color',interface.colors.background,...
             'NumberTitle', 'off',...
@@ -864,6 +865,9 @@ function sim_world()
             'visible','off',...
             'CloseRequestFcn',@f_CloseRequestFcn);
         colormap([bsxfun(@times,[50 150 0]/270,ones(100,3));[1 1 1]*0.3])
+        init_fig_add_logo(interface.figures.visu.f)
+        
+        % main figure
         interface.figures.main.f = figure(...
             'NumberTitle', 'off',...
             'name','ADAS SimWorld',...
@@ -871,6 +875,15 @@ function sim_world()
             'MenuBar', 'none',...
             'position',[1 31 1920 1020],... %[450 80 1080 720]
             'CloseRequestFcn',@f_CloseRequestFcn);
+        init_fig_add_logo(interface.figures.main.f)
+        colormap([bsxfun(@times,[50 150 0]/270,ones(100,3));[1 1 1]*0.3])
+        
+        function init_fig_add_logo(f)
+            warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
+            jframe=get(f,'javaframe');
+            jIcon=javax.swing.ImageIcon('cfg/logo_rmra.png');
+            jframe.setFigureIcon(jIcon);
+        end
         
         % ************************ playback panel ************************
         
