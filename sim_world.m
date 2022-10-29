@@ -21,6 +21,10 @@ function sim_world()
                 simulation_run(interface,t,dt,road,lane,road_edge,road_area,...
                 ego,stand,mov,onc,road_tail);
             
+            % update widgets
+            interface.widgets.speedometer = update_speedometer(...
+                interface.widgets.speedometer,ego,t,dt);
+            
             % fill inputs for user reconstruction
             [sensor_f, ego_f] = fill_input_reconstruct_360_space(...
                 interface,ego,t,dt);
@@ -438,7 +442,7 @@ function sim_world()
     
     function obj = init_ego(x_t, road)
         obj = [];                % ego properties
-        obj.v = 10;              % (m/s) ego speed
+        obj.v = 20;              % (m/s) ego speed
         obj.x = @(t,x_1) x_t(obj.v,t,x_1); % (m) ego x position;
         obj.y = @(x) road.y(x); % (m) ego y position
         obj.x_1 = 0;            % (m) ego's last x
@@ -1436,9 +1440,14 @@ function sim_world()
         
         % theta arrays
         tl = [0 pi] + [-1 1]*pi/10;                 % theta limits
+        interface.widgets.speedometer.tlim = tl;    % store thetalim
         n = 50;                                     % fine to gross ratio
         theta_fine = tl(1):(pi*(1 + 0.2))/n:tl(2);  % fine theta
         theta = theta_fine(1:n/10:end);             % gross theta
+        
+        % extend meter line
+        p_off = pi/25;                                  % angular offset
+        p_theta = [tl(1)-p_off theta_fine tl(2)+p_off]; % extended theta ar
         
         % large ticks
         l = 0.1;                                           % tick length
@@ -1452,27 +1461,10 @@ function sim_world()
         tick_fine = ...                             % fine tick data
             bsxfun(@plus,h*ones(size(theta_fine)),[0;-l;nan]);
         
-        % speedometer needle
-        w = 0.03;                       % needle width
-        s = w:-0.005:-w;                % parameterization array
-        x = [-w 0 s];                   % needle x
-        y = [0 1 -sqrt(w^2 - s.^2)];    % needle y
-        
-        % speed init value and limit
-        v = 0;                          % (km/h) init speed
-        mx = 100;                       % (km/h) max speed
-
-        % 2D rotation
-        rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);... rotation matrix
-                sind(t)  cosd(t)]';
-        
-        % calculate and apply rotation
-        th = diff(tl)/pi*180*(mx/2-v)/mx;   % needle orientation
-        xy = rd(x,y,th);                    % rotate needle xy
-
-        % extend meter line
-        p_off = pi/25;                                  % angular offset
-        p_theta = [tl(1)-p_off theta_fine tl(2)+p_off]; % extended theta ar
+        % draw speedometer needle
+        mx = 100;                                   % speed limit
+        xy = init_speedometer_needle_xy(tl,0,mx);   % get needle xy
+        interface.widgets.speedometer.slim = mx;    % store speed limit
         
         % draw widget components
         patch(cos(p_theta),sin(p_theta),...               % frame
@@ -1515,11 +1507,10 @@ function sim_world()
         patch([-d_w -d_w d_w d_w],[-d_h d_h d_h -d_h]-0.20,[1 1 1]*0.2)
         
         % draw odometer numbers
+        interface.widgets.speedometer.d_total = 0;  % total distance
         d_n = 5;                                    % number of digits
-        d = 0;                                      % init distance
-        d_s = num2str(d);                           % d string
-        d_z = num2str(zeros(d_n-length(d_s),1));    % zeros string
-        d_str = [d_z' d_s];                         % odometer string
+        interface.widgets.speedometer.d_ndigi = d_n; % store n digits
+        d_str = init_speedometer_dist_str(d_n,0);
         d_x = -0.205;                               % string position x
         d_y = -0.2;                                 % string position y
         interface.widgets.speedometer.distance = text(...
@@ -1533,6 +1524,60 @@ function sim_world()
         text(-0.1,0.25,'km/h','color','w')
         text(0.27,-0.2,'m','color','w')
         
+    end
+
+    function xy = init_speedometer_needle_xy(tl,v,mx)
+       % speedometer needle
+        w = 0.03;                       % needle width
+        s = w:-0.005:-w;                % parameterization array
+        x = [-w 0 s];                   % needle x
+        y = [0 1 -sqrt(w^2 - s.^2)];    % needle y
+
+        % 2D rotation
+        rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);... rotation matrix
+                sind(t)  cosd(t)]';
+        
+        % calculate and apply rotation
+        th = diff(tl)/pi*180*(mx/2-v)/mx;   % needle orientation
+        xy = rd(x,y,th);                    % rotate needle xy 
+    end
+
+    function d_str = init_speedometer_dist_str(d_n,d)
+        d = mod(round(d),10^d_n);                   % round and limit
+        d_s = num2str(d);                           % d string
+        d_z = num2str(zeros(d_n-length(d_s),1));    % zeros string
+        d_str = [d_z' d_s];                         % odometer string
+    end
+
+    function speedometer = update_speedometer(speedometer,ego,t,dt)
+        
+        % calculate ego speed
+        x = ego.x(t,0);             % current x
+        x_1 = ego.x(t-dt,0);        % previous x (t_k-1)
+        dx = x - x_1;               % x displacement
+        dy = ego.y(x) - ego.y(x_1); % y displacement
+        dd = sqrt(dx^2 + dy^2);      % displacement
+        v = dd/dt;
+        
+        % update total travelled distance
+        speedometer.d_total = speedometer.d_total + dd;
+        
+        % draw speedometer needle
+        xy = init_speedometer_needle_xy(...
+            speedometer.tlim, v, speedometer.slim);
+        
+        % update needle srawing
+        set(speedometer.needle,...
+            'xData',xy(:,1),...
+            'yData',xy(:,2))
+        
+        % update distance meter
+        d_str = init_speedometer_dist_str(...
+            speedometer.d_ndigi, speedometer.d_total);
+        
+        % update distance drawing
+        set(speedometer.distance,...
+            'string',d_str)
     end
     
     function [ra_l,ra_r,ra_c] = split_road_edges(road_edge_x,road_edge_y)
