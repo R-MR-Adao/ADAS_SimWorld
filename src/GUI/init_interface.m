@@ -1,16 +1,16 @@
 function sim_world_data = init_interface()
 
     % try to close already opened figure, if existent
-        try
-            f1 = evalin('base','sim_world_data.interface.figures.visu.f');
-            f2 = evalin('base','sim_world_data.interface.figures.main.f');
-            close(f1)
-            close(f2)
-            delete(f1)
-            delete(f2)
-        catch
-            % nothing
-        end
+    try
+        f1 = evalin('base','sim_world_data.interface.figures.visu.f');
+        f2 = evalin('base','sim_world_data.interface.figures.main.f');
+        close(f1)
+        close(f2)
+        delete(f1)
+        delete(f2)
+    catch
+        % nothing
+    end
 
     % expose public functions
     sim_world_data.funcs.interface.reset_plots = ...

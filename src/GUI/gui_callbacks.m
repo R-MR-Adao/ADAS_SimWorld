@@ -207,7 +207,7 @@ function sim_world_data = gui_callbacks(sim_world_data)
                     wb = waitbar(0,'Saving file');
                     user_code_save_Callback();
                     for ii =1:75
-                        waitbar(ii/50) % wait a moment for file to save
+                        waitbar(ii/75) % wait a moment for file to save
                     end
                     close(wb)
                 end
