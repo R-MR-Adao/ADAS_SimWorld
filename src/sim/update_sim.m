@@ -62,20 +62,9 @@ function sim_world_data = update_sim(sim_world_data)
                 interface,ego,t,dt);
             
             % recover 360 degree coordinate space
-            switch nargout(interface.files.reconstruct_360_space.func)
-                case 1                       % returns only rotated objects
-                    obj_u = eval(...
-                        [interface.files.reconstruct_360_space.func,...
-                        '(sensor_f)']);
-                    % define user (un)classified object lists as empty arrs
-                    stand_u = [];
-                    mov_u   = [];
-                    onc_u   = [];
-                case 4                       % returns classified objects
-                    [obj_u,stand_u,mov_u,onc_u] = eval(...
-                        [interface.files.reconstruct_360_space.func,...
-                        '(sensor_f,ego_f)']);
-            end
+            [obj_u,stand_u,mov_u,onc_u] =...
+                funcs.user_api.execute_reconstruct_360_space(...
+                interface,sensor_f,ego_f);
             
             % calculate z coordinates for user detections
             [obj_u,stand_u,mov_u,onc_u] = funcs.user_api.calculate_user_z(...

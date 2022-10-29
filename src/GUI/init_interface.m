@@ -23,11 +23,11 @@ function sim_world_data = init_interface()
     sim_world_data = widget_speedometer(sim_world_data);
     
     % initialize interface
-    init();
+    sim_world_data.interface = init(sim_world_data);
     
     % *********************** function definitions ***********************
     
-    function init()
+    function interface = init(sim_world_data)
         % ADAS SimWorld: Initialize interface
         
         funcs = sim_world_data.funcs; % recover from base ws

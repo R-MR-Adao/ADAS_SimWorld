@@ -4,22 +4,25 @@ function sim_world_data = user_code_api(sim_world_data)
         @(interface,ego,t,dt) fill_input_reconstruct_360_space(...
             interface,ego,t,dt);
         
-    sim_world_data.funcs.user_api.update_plot_dynamic_user = ...
-        @(ego,obj_u,stand,stand_u,mov,mov_u,onc,onc_u) ...
-        update_plot_dynamic_user(...
-            ego,obj_u,stand,stand_u,mov,mov_u,onc,onc_u);
+    sim_world_data.funcs.user_api.execute_reconstruct_360_space = ...
+        @(interface,sensor_f,ego_f) execute_reconstruct_360_space(...
+        interface,sensor_f,ego_f);
         
     sim_world_data.funcs.user_api.calculate_user_z = ...
         @(funcs,road,obj_u,stand_u,mov_u,onc_u,road_area,ego,interface)...
         calculate_user_z(...
             funcs,road,obj_u,stand_u,mov_u,onc_u,road_area,ego,interface);
+    
+    sim_world_data.funcs.user_api.update_plot_dynamic_user = ...
+        @(ego,obj_u,stand,stand_u,mov,mov_u,onc,onc_u) ...
+        update_plot_dynamic_user(...
+            ego,obj_u,stand,stand_u,mov,mov_u,onc,onc_u);
         
     % *********************** function definitions ***********************
 
     function [sensor_f,ego_f] = fill_input_reconstruct_360_space(...
             interface,ego,t,dt)
         % ADAS SimWorld: Fill inputs for user code
-        
         % copy selected data from the sensor
         sensor_f.n = ego.sensor.n;                    % number of sensors
         sensor_f.fov.range = ego.sensor.fov.range;    % fov dist range
@@ -63,7 +66,63 @@ function sim_world_data = user_code_api(sim_world_data)
         ego_f.v = sqrt(ego_f.v_xy(1)^2 + ego_f.v_xy(2)^2); % ego speed
         ego_f.dt = dt;                          % cycle duration
     end
+    
+    function [obj_u,stand_u,mov_u,onc_u] = execute_reconstruct_360_space(...
+            interface,sensor_f,ego_f)
+        switch nargout(interface.files.reconstruct_360_space.func)
+            case 1                       % returns only rotated objects
+                obj_u = eval(...
+                    [interface.files.reconstruct_360_space.func,...
+                    '(sensor_f)']);
+                % define user (un)classified object lists as empty arrs
+                stand_u = [];
+                mov_u   = [];
+                onc_u   = [];
+            case 4                       % returns classified objects
+                [obj_u,stand_u,mov_u,onc_u] = eval(...
+                    [interface.files.reconstruct_360_space.func,...
+                    '(sensor_f,ego_f)']);
+        end
+    end
 
+    function [obj_u,stand_u,mov_u,onc_u] = calculate_user_z(funcs,...
+            road,obj_u,stand_u,mov_u,onc_u,...
+                road_area,ego,interface)
+            % ADAS SimWorld: Calculate z of user-identified objects
+            
+            if ~isempty(obj_u)
+                if road.terrain.a > 0 && ...
+                        get(interface.figures.main.sliders.ax_dynamic_tilt,'value')...
+                        < 70                        
+                    % calculate standing object z in their original position
+                    %   1) cancel ego rotation
+                    [obj_x,obj_y] = funcs.sim.dynamic_transform_coordinates(...
+                        obj_u(:,1),obj_u(:,2),0,0,-ego.theta);
+                    %   2) calculate road_area z in the object positions
+                    obj_u = [obj_u road_area.Z(...
+                        obj_x,ego.x_1,obj_y,ego.y_1)];
+                    if ~isempty(stand_u)
+                        %   1) cancel ego rotation
+                        [stand_x,stand_y] = funcs.sim.dynamic_transform_coordinates(...
+                            stand_u(:,1),stand_u(:,2),0,0,-ego.theta);
+                        %   2) calculate road_area z in the object positions
+                        stand_u = [stand_u road_area.Z(...
+                            stand_x,ego.x_1,stand_y,ego.y_1)];
+                    else
+                        stand_u = [stand_u zeros(size(stand_u,1),1)];
+                    end
+
+                else % approximate standing object z to zero
+                    obj_u = [obj_u zeros(size(obj_u,1),1)];
+                    stand_u = [stand_u zeros(size(stand_u,1),1)];
+                end
+
+                % moving and oncoming objects must have z = 0
+                mov_u = [mov_u zeros(size(mov_u,1),1)];
+                onc_u = [onc_u zeros(size(onc_u,1),1)];
+            end
+    end
+    
     function update_plot_dynamic_user(...
             ego,obj_u,stand,stand_u,mov,mov_u,onc,onc_u)
         % ADAS SimWorld: Update plots based on user code results
@@ -111,37 +170,4 @@ function sim_world_data = user_code_api(sim_world_data)
             set(onc.m.dynamic_user,'visible','off')
         end
     end
-
-    function [obj_u,stand_u,mov_u,onc_u] = calculate_user_z(funcs,...
-            road,obj_u,stand_u,mov_u,onc_u,...
-                road_area,ego,interface)
-            % ADAS SimWorld: Calculate z of user-identified objects
-            
-            if ~isempty(obj_u)
-                if road.terrain.a > 0 && ...
-                        get(interface.figures.main.sliders.ax_dynamic_tilt,'value')...
-                        < 70
-                    % calculate standing object z in their original position
-                    %   1) cancel ego rotation
-                    [obj_x,obj_y] = funcs.sim.dynamic_transform_coordinates(...
-                        obj_u(:,1),obj_u(:,2),0,0,-ego.theta);
-                    [stand_x,stand_y] = funcs.sim.dynamic_transform_coordinates(...
-                        stand_u(:,1),stand_u(:,2),0,0,-ego.theta);
-                    %   2) calculate road_area z in the object positions
-                    obj_u = [obj_u road_area.Z(...
-                        obj_x,ego.x_1,obj_y,ego.y_1)];
-                    stand_u = [stand_u road_area.Z(...
-                        stand_x,ego.x_1,stand_y,ego.y_1)];
-
-                else % approximate standing object z to zero
-                    obj_u = [obj_u zeros(size(obj_u,1),1)];
-                    stand_u = [stand_u zeros(size(stand_u,1),1)];
-                end
-
-                % moving and oncoming objects must have z = 0
-                mov_u = [mov_u zeros(size(mov_u,1),1)];
-                onc_u = [onc_u zeros(size(onc_u,1),1)];
-            end
-    end
-
 end

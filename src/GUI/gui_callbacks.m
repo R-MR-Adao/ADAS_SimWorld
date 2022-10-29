@@ -203,12 +203,12 @@ function sim_world_data = gui_callbacks(sim_world_data)
                     'enable','off')
                 if get(interface.figures.main.checkboxes.user_code_autosave,...
                         'value')
+                    clear interface.files.reconstruct_360_space.func
                     wb = waitbar(0,'Saving file');
                     user_code_save_Callback();
                     for ii =1:75
                         waitbar(ii/50) % wait a moment for file to save
                     end
-                    clear reconstruct_360_space
                     close(wb)
                 end
             case 0
