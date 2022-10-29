@@ -442,7 +442,7 @@ function sim_world()
     
     function obj = init_ego(x_t, road)
         obj = [];                % ego properties
-        obj.v = 20;              % (m/s) ego speed
+        obj.v = 8;              % (m/s) ego speed
         obj.x = @(t,x_1) x_t(obj.v,t,x_1); % (m) ego x position;
         obj.y = @(x) road.y(x); % (m) ego y position
         obj.x_1 = 0;            % (m) ego's last x
@@ -1243,7 +1243,7 @@ function sim_world()
             'style','slider',...
             'min', 0.005,...
             'max', 0.1,...
-            'value',0.02,...
+            'value',0.04,...
             'SliderStep', [0.01, 0.02]/(0.1-0.005),...
             'position', [0.03 controls_main_parameters_dt_yanchor-0.1 0.75 0.1],...
             'callback',@controls_main_parameters_dt_Callback);
@@ -1257,7 +1257,7 @@ function sim_world()
             'parent',interface.figures.main.panels.controls_main_parameters,...
             'units','normalized',...
             'style','edit',...
-            'string', '0.02', ...
+            'string', '0.04', ...
             'position', [0.81 controls_main_parameters_dt_yanchor-0.1 0.16 0.1],...
             'callback',@controls_main_parameters_dt_Callback);
         init_ui_style(...
@@ -1441,9 +1441,11 @@ function sim_world()
         % theta arrays
         tl = [0 pi] + [-1 1]*pi/10;                 % theta limits
         interface.widgets.speedometer.tlim = tl;    % store thetalim
-        n = 50;                                     % fine to gross ratio
+        mx = 180;                                   % speed limit
+        interface.widgets.speedometer.slim = mx;    % store speed limit
+        n = mx/4;                                     % fine to gross ratio
         theta_fine = tl(1):(pi*(1 + 0.2))/n:tl(2);  % fine theta
-        theta = theta_fine(1:n/10:end);             % gross theta
+        theta = theta_fine(1:n/9:end);              % gross theta
         
         % extend meter line
         p_off = pi/25;                                  % angular offset
@@ -1462,9 +1464,7 @@ function sim_world()
             bsxfun(@plus,h*ones(size(theta_fine)),[0;-l;nan]);
         
         % draw speedometer needle
-        mx = 100;                                   % speed limit
         xy = init_speedometer_needle_xy(tl,0,mx);   % get needle xy
-        interface.widgets.speedometer.slim = mx;    % store speed limit
         
         % draw widget components
         patch(cos(p_theta),sin(p_theta),...               % frame
@@ -1556,8 +1556,8 @@ function sim_world()
         x_1 = ego.x(t-dt,0);        % previous x (t_k-1)
         dx = x - x_1;               % x displacement
         dy = ego.y(x) - ego.y(x_1); % y displacement
-        dd = sqrt(dx^2 + dy^2);      % displacement
-        v = dd/dt;
+        dd = sqrt(dx^2 + dy^2);     % displacement
+        v = dd/dt/(1000/3600);      % (km/h) speed
         
         % update total travelled distance
         speedometer.d_total = speedometer.d_total + dd;
@@ -1943,6 +1943,9 @@ function sim_world()
                     init_plots(interface,road,lane,road_edges,road_area,...
                     ego,stand,mov,onc);
         
+        % reset speedometer widget
+        interface.widgets.speedometer.d_total = 0;
+                
         % output data to base workspace
         output_sim_data(...
             interface,road,lane,road_edge,road_area,...
