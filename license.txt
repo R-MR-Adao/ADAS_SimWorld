@@ -1,0 +1,5 @@
+Created by Ricardo M. R. Adao, 2022
+https://github.com/R-MR-Adao/ADAS_SimWorld
+
+This work is licensed under a Creative Commons CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.
+https://creativecommons.org/publicdomain/zero/1.0/
