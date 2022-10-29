@@ -1,4 +1,4 @@
-function init_interface()
+function sim_world_data = init_interface()
 
     % try to close already opened figure, if existent
         try
@@ -24,6 +24,8 @@ function init_interface()
     
     % initialize interface
     init();
+    
+    % *********************** function definitions ***********************
     
     function init()
         % ADAS SimWorld: Initialize interface
@@ -289,7 +291,7 @@ function init_interface()
             'style','pushbutton',...
             'string','Reset',...
             'position', [0.70, 0.93, 0.25, 0.035],...
-            'callback',@controls_main_reset_Callback);
+            'callback',sim_world_data.funcs.gui_callbacks.controls_main_reset_Callback);
         init_ui_style(...
             interface.figures.main.buttons.controls_main_reset,interface)
 

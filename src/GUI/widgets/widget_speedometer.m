@@ -3,11 +3,15 @@ function sim_world_data = widget_speedometer(sim_world_data)
     % expose public functions
     sim_world_data.funcs.widgets.init_speedometer =...
         @(interface) init_speedometer(interface);
+    
     sim_world_data.funcs.widgets.init_speedometer_needle_xy =...
         @(tl,v,mx) init_speedometer_needle_xy(tl,v,mx);
+    
     sim_world_data.funcs.widgets.update_speedometer =...
         @(speedometer,ego,t,dt) update_speedometer(speedometer,ego,t,dt);
-
+    
+    % *********************** function definitions ***********************
+    
     function interface = init_speedometer(interface)
         
         interface.widgets.speedometer.axes = axes(...
