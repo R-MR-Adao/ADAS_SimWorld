@@ -879,9 +879,12 @@ function sim_world()
         colormap([bsxfun(@times,[50 150 0]/270,ones(100,3));[1 1 1]*0.3])
         
         function init_fig_add_logo(f)
+            
             warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
+            p = mfilename('fullpath');
+            cd(p(1:end-length('sim_world')))
             jframe=get(f,'javaframe');
-            jIcon=javax.swing.ImageIcon('cfg/logo_rmra.png');
+            jIcon=javax.swing.ImageIcon('cfg\logo_rmra.png');
             jframe.setFigureIcon(jIcon);
         end
         
