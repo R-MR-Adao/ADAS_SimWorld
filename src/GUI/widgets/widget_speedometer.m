@@ -13,6 +13,7 @@ function sim_world_data = widget_speedometer(sim_world_data)
     % *********************** function definitions ***********************
     
     function interface = init_speedometer(interface)
+        % ADAS SimWorld: Initialize speedmeter widget
         
         interface.widgets.speedometer.axes = axes(...
             'xtick',[],...
@@ -116,6 +117,8 @@ function sim_world_data = widget_speedometer(sim_world_data)
     end
     
     function xy = init_speedometer_needle_xy(tl,v,mx)
+        % ADAS SimWorld: Initialize speedometer needle
+        
        % speedometer needle
         w = 0.03;                       % needle width
         s = w:-0.005:-w;                % parameterization array
@@ -132,6 +135,8 @@ function sim_world_data = widget_speedometer(sim_world_data)
     end
 
     function d_str = init_speedometer_dist_str(d_n,d)
+        % ADAS SimWorld: Obtain speedometer string
+        
         d = mod(round(d),10^d_n);                   % round and limit
         d_s = num2str(d);                           % d string
         d_z = num2str(zeros(d_n-length(d_s),1));    % zeros string
@@ -139,6 +144,7 @@ function sim_world_data = widget_speedometer(sim_world_data)
     end
 
     function speedometer = update_speedometer(speedometer,ego,t,dt)
+        % ADAS SimWorld: Update speedometer distance display
         
         % calculate ego speed
         x = ego.x(t,0);             % current x

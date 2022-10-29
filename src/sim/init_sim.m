@@ -111,13 +111,13 @@ function sim_world_data = init_sim(sim_world_data)
             type = 'surf';
         else
             type = varargin{1}{4};
-            x    = varargin{1}{5};
-            ra_l = varargin{1}{6};
-            ra_r = varargin{1}{7};
         end
                 
         switch type 
             case 'patch'    % flat surface
+                x    = varargin{1}{5};
+                ra_l = varargin{1}{6};
+                ra_r = varargin{1}{7};
                 % nan-free range
                 rg = ~logical(isnan(ra_r) + isnan(ra_l));
                 % define lines around road edge

@@ -31,6 +31,9 @@ function sim_world_data = update_sim(sim_world_data)
         ego,stand,mov,onc,t,dt,road_tail) output_sim_data(...
             sim_world_data,interface,road,lane,road_edge,road_area,...
             ego,stand,mov,onc,t,dt,road_tail);
+        
+    sim_world_data.funcs.sim.dynamic_transform_coordinates =...
+        @(varargin) dynamic_transform_coordinates(varargin);
     
     % *********************** function definitions ***********************
         
@@ -76,7 +79,7 @@ function sim_world_data = update_sim(sim_world_data)
             
             % calculate z coordinates for user detections
             [obj_u,stand_u,mov_u,onc_u] = funcs.user_api.calculate_user_z(...
-                road,obj_u,stand_u,mov_u,onc_u,...
+                funcs,road,obj_u,stand_u,mov_u,onc_u,...
                 road_area,ego,interface);
             
             % draw recovered coordinates
@@ -141,23 +144,23 @@ function sim_world_data = update_sim(sim_world_data)
         % ***************** update data for dynamic plot *****************
         
         % transform road coordinates
-        [road_x,road_y,theta] = dynamic_transform_coordinates(...
+        [road_x,road_y,theta] = funcs.sim.dynamic_transform_coordinates(...
             road_x,road_y,ego.x_1,ego.y(ego.x_1));
         ego.Dtheta = ego.theta - theta; % angular variation
         ego.theta = theta;              % ego orientation
         
         % transform lane coordinates
-        [lane_x,lane_y] = dynamic_transform_coordinates(...
+        [lane_x,lane_y] = funcs.sim.dynamic_transform_coordinates(...
             lane_x,lane_y,ego.x_1,ego.y(ego.x_1), theta);
         
         % transform road edge coordinates
-        [road_edge_x,road_edge_y] = dynamic_transform_coordinates(...
+        [road_edge_x,road_edge_y] = funcs.sim.dynamic_transform_coordinates(...
             road_edge_x,road_edge_y,ego.x_1,ego.y(ego.x_1), theta);
         
         % transform standing object coordinates
         s_shift = road.x(end)*((ego_x-stand.x) > road.x(round(end/2))) +... 
                  -road.x(end)*((stand.x-ego_x) > road.x(round(end/2)));
-        [stand_x,stand_y] = dynamic_transform_coordinates(...
+        [stand_x,stand_y] = funcs.sim.dynamic_transform_coordinates(...
             stand.x+s_shift,stand.y,ego_x,ego_y, theta);
         fov = [get(interface.figures.main.axes.dynamic,'ylim');... axes fov
             get(interface.figures.main.axes.dynamic,'xlim')]';
@@ -166,19 +169,19 @@ function sim_world_data = update_sim(sim_world_data)
         % transform moving object corrdinates
         m_shift = road.x(end)*((ego_x-mov_x) > road.x(round(end/2))) +... 
                  -road.x(end)*((mov_x-ego_x) > road.x(round(end/2)));
-        [mov_x,mov_y] = dynamic_transform_coordinates(...
+        [mov_x,mov_y] = funcs.sim.dynamic_transform_coordinates(...
             mov_x+m_shift,mov_y,ego_x,ego_y, theta);
         mov = update_mov_object_cube(funcs,mov,mov_x,mov_y,theta,fov);
         
         % transform oncoming object corrdinates
         o_shift = road.x(end)*((ego_x-onc_x) > road.x(round(end/2))) +... 
                  -road.x(end)*((onc_x-ego_x) > road.x(round(end/2)));
-        [onc_x,onc_y] = dynamic_transform_coordinates(...
+        [onc_x,onc_y] = funcs.sim.dynamic_transform_coordinates(...
             onc_x+o_shift,onc_y,ego_x,ego_y, theta);
         onc = update_mov_object_cube(funcs,onc,onc_x,onc_y,theta,fov);
         
         % transform road map coordinates
-        [ra_x,ra_y] = dynamic_transform_coordinates(...
+        [ra_x,ra_y] = funcs.sim.dynamic_transform_coordinates(...
                 road_area.X(:),road_area.Y(:),0,0, theta);
         
         % reconstruct road area coordinates
@@ -276,7 +279,7 @@ function sim_world_data = update_sim(sim_world_data)
                 interface.figures.main.sliders.ax_dynamic_tilt,'value') < 70
             type = 'surf';
             % initialize road area
-            [~,road_area.X, road_area.Y] = init_road_area(xl,yl,road,type);
+            [~,road_area.X, road_area.Y] = funcs.sim.init_road_area(xl,yl,road,type);
             
             % find road area coverage
             [ra_l,ra_r] = funcs.sim.find_road_points(...
@@ -344,12 +347,14 @@ function sim_world_data = update_sim(sim_world_data)
         sim_world_data.sim.road_tail = road_tail;
         assignin('base','sim_world_data',sim_world_data)
     end
-
-    %************************* internal functions *************************
     
-    function [x,y,theta] = dynamic_transform_coordinates(...
-            x,y,x_ref,y_ref,theta)
+    function [x,y,theta] = dynamic_transform_coordinates(varargin)
         % ADAS SimWorld: Determine and/or apply matrix rotation
+        
+        x     = varargin{1}{1};
+        y     = varargin{1}{2};
+        x_ref = varargin{1}{3};
+        y_ref = varargin{1}{4};
         
         % rotation matrix
         r = @(x,y,t) [x(:),y(:)]*[cos(t) -sin(t);...
@@ -358,7 +363,7 @@ function sim_world_data = update_sim(sim_world_data)
         x = x - x_ref;
         y = y - y_ref;
         
-        if nargin  < 5
+        if length(varargin{1})  < 5
             %find root
             [~,i_root] = min(abs(x));
 
@@ -366,6 +371,8 @@ function sim_world_data = update_sim(sim_world_data)
             dx = x(i_root+1) - x(i_root);
             dy = y(i_root+1) - y(i_root);
             theta = atan2(dy,dx);
+        else
+            theta = varargin{1}{5};
         end
         
         % apply rotation
@@ -376,6 +383,8 @@ function sim_world_data = update_sim(sim_world_data)
         y = xy(:,2);
         
     end
+
+    %************************* internal functions *************************
 
     function obj = update_stand_object_cube(funcs,obj,obj_x,obj_y,theta,fov)
         % ADAS SimWorld: Update the standing objects cube points
