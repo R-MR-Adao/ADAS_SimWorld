@@ -378,12 +378,12 @@ function sim_world_data = update_sim(sim_world_data)
     function obj = update_stand_object_cube(funcs,obj,obj_x,obj_y,theta,fov)
         % ADAS SimWorld: Update the standing objects cube points
         
-        for ii = 1 : obj.n % object cubes (visualization)
+        for ii = 1 : obj.n % object shapes (visualization)
             if (fov(1,1) <= obj_x(ii)) && (obj_x(ii) <= fov(2,1)) && ...
                     (fov(1,2) <= obj_y(ii)) && (obj_y(ii) <= fov(2,2))
-                obj.cube(ii).center = [obj_x(ii),obj_y(ii),0];
-                obj.cube(ii).theta  = theta/pi*180 + 90;
-                obj.cube(ii)        = funcs.sim.init_cube(obj.cube(ii));
+                obj.shape(ii).center = [obj_x(ii),obj_y(ii),0];
+                obj.shape(ii).theta  = theta/pi*180 + 90;
+                obj.shape(ii)        = funcs.sim.init_tree(obj.shape(ii));
             end
         end
     end

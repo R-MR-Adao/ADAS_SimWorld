@@ -30,6 +30,9 @@ function sim_world_data = init_sim(sim_world_data)
     sim_world_data.funcs.sim.init_cube = ...
         @(varargin) init_cube(varargin);
    
+    sim_world_data.funcs.sim.init_tree = ...
+        @(varargin) init_tree(varargin);
+    
     % *********************** function definitions ***********************
     
     function obj = init_road(interface)
@@ -209,14 +212,26 @@ function sim_world_data = init_sim(sim_world_data)
         obj.x = rand(n,1)*diff(rg_x) + rg_x(1);
         obj.y = rand(n,1)*diff(rg_y) + rg_y(1); 
         obj.z = road_area.Z(obj.x,0,obj.y,0);
-        % object cube (visualization)
+        % object tree shape (visualization)
+        faces =     [1 2 3 4 1;...
+                     1 2 6 5 1;...
+                     2 3 7 6 2;...
+                     3 4 8 7 3;...
+                     4 1 5 8 4;...
+                     5 6 7 8 5];
+        obj.faces = [faces(2:end-1,:);faces+8];
+        n_faces = size(obj.faces,1);
+        % define tree colors
+        obj.color = [bsxfun(@times,[0.5 0.3 0],ones(4,3));...
+                     bsxfun(@times,[0 0.7 0],ones(n_faces-4,3))];
         for ii = 1 : n
-            obj.cube(ii).dimensions = [2 2 4];
-            obj.cube(ii).theta = [];
-            obj.cube(ii).x = [];
-            obj.cube(ii).y = [];
-            obj.cube(ii).z = [];
-            obj.cube(ii).idx = [];
+            h = 2 + rand(1)*4;                    % trunk height                                   
+            obj.shape(ii).dimensions = [1,1,h;... % trunk dims
+                                        4,4,2];   % bush dims
+            obj.shape(ii).theta0 = rand(1)*90;    % initial orientation
+            obj.shape(ii).theta = [];             % ego orientation
+            obj.shape(ii).faces = [];
+            obj.shape(ii).vertices = [];
         end
     end
     
@@ -281,6 +296,40 @@ function sim_world_data = init_sim(sim_world_data)
         cube.x = coord(:,1);    % cube x coordinates
         cube.y = coord(:,2);    % cube y coordinates
         cube.z = coord(:,3);    % cube z coordinates
+    end
+
+    function tree = init_tree(varargin)
+        % ADAS SimWorld: Initialize tree-like 3D shape
+        
+        if length(varargin{1}) > 1
+            tree       = varargin{1}{1};
+            dimensions = varargin{1}{2};
+            center     = varargin{1}{3};
+            theta      = varargin{1}{4};
+        else
+            if iscell(varargin{1})
+                tree = varargin{1}{1};
+            else
+                tree = varargin{1};
+            end
+            dimensions = tree.dimensions;     % tree dimensions
+            center = tree.center;             % tree center position
+            theta = tree.theta + tree.theta0; % tree orientaton
+        end
+        
+        rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t) ;... % rotation matrix
+                                   sind(t)  cosd(t)];
+                               
+        % draw treeform shape
+        vert = [-1 -1 0; -1 1 0; 1 1 0; 1 -1 0;...
+                        -1 -1 2; -1 1 2; 1 1 2; 1 -1 2];
+        % apply input properties
+        vert = cat(1,bsxfun(@times,vert/2,dimensions(1,:)),...
+                     bsxfun(@plus,bsxfun(@times,vert/2,dimensions(2,:)),...
+                     [0 0 dimensions(1,3)]));
+        tree.vertices = bsxfun(@plus,...
+            [rd(vert(:,1),vert(:,2),theta+90),vert(:,3)],...
+            center);
     end
 
 end

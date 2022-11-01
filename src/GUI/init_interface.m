@@ -94,6 +94,7 @@ function sim_world_data = init_interface()
             'position',interface.figures.main.axes.dynamic_pos,...
             'xdir','reverse');
         init_axes_style(interface.figures.main.axes.dynamic,interface)
+        caxis([-1 0])
 
         % zoom slider
         interface.figures.main.sliders.ax_dynamic_zoom = uicontrol(...
