@@ -58,12 +58,12 @@ function sim_world_data = init_sim(sim_world_data)
         % offset a point by off (objects)
         obj.ux =  @(x,x1) -(road.y(x1) - road.y(x)); % x derivative
         obj.uy =  @(x,x1) (x1-x);                % y derivative
-        obj.unx = @(x,x1)...                     % perpendiculate vector x
-            (obj.ux(x,x1).*off)./(sqrt(obj.ux(x,x1).^2 + obj.uy(x,x1).^2));
-        obj.uny = @(x,x1)...                     % perpendiculate vector y
-            (obj.uy(x,x1).*off)./(sqrt(obj.ux(x,x1).^2 + obj.uy(x,x1).^2));
-        obj.x =   @(x,x1)      x    + obj.unx(x,x1); % shifted point x
-        obj.y =   @(x,x1) road.y(x) + obj.uny(x,x1); % shifted point y
+        obj.unx = @(x,x1)...                     % perpendicular vector x
+            (obj.ux(x,x1))./(sqrt(obj.ux(x,x1).^2 + obj.uy(x,x1).^2));
+        obj.uny = @(x,x1)...                     % perpendicular vector y
+            (obj.uy(x,x1))./(sqrt(obj.ux(x,x1).^2 + obj.uy(x,x1).^2));
+        obj.x =   @(x,x1)      x    + obj.unx(x,x1).*off; % shifted point x
+        obj.y =   @(x,x1) road.y(x) + obj.uny(x,x1).*off; % shifted point y
     end
 
     function obj = init_lane(road,off)
@@ -73,14 +73,14 @@ function sim_world_data = init_sim(sim_world_data)
         obj.off = off;                   % fixed offset
         obj.ux =  @(x) -diff(road.y(x)); % x derivative
         obj.uy =  @(x) diff(x);          % y derivative
-        obj.unx = @(x,off)...            % perpendiculate vector x
-            (obj.ux(x).*off)./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
-        obj.uny = @(x,off)...            % perpendiculate vector y
-            (obj.uy(x).*off)./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
+        obj.unx = @(x)...            % perpendicular vector x
+            (obj.ux(x))./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
+        obj.uny = @(x)...            % perpendicular vector y
+            (obj.uy(x))./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
         obj.x =   @(x)...                % shifted vector x
-            x + [obj.unx(x(1:2),obj.off) obj.unx(x,obj.off)];
+            x + [obj.unx(x(1:2)).*obj.off obj.unx(x)*obj.off];
         obj.y =   @(x)...                % shifted vector y
-            road.y(x) + [obj.uny(x(1:2),obj.off) obj.uny(x,obj.off)];
+            road.y(x) + [obj.uny(x(1:2)).*obj.off obj.uny(x)*obj.off];
     end
 
     function [lane,road_edges] = init_lanes(road)
