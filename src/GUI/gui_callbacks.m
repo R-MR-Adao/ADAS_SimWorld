@@ -144,7 +144,7 @@ function sim_world_data = gui_callbacks(sim_world_data)
             ego,stand,mov,onc,t,dt,road_tail)
         
         % run one simulation cycle to finish initialization
-        funcs.gui_callbacks.controls_main_play_Callback(...
+        controls_main_play_Callback(...
             interface.figures.main.buttons.controls_main_play)
         
         % reset start button string
