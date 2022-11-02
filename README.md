@@ -17,12 +17,16 @@ It was designed for mainly for didatic purposes,and the prototyping of simple de
    - [Simulation visualizations](@simulationvisualizations)
    - [User code editor](@rsercodeeditor)
    - [Speedometer widget](@speedometerwidget)
-- [Data generation model](@datagenerationmodel)
-- [SimWorld inhabitants](@simworldinhabitants)
-- [User solutions](@usersolutions)
-- [Widgets](@widgets)
-- [A peek under the hood](@apeekunderthehood)
-  - [Software architecture](@softwarearchitecture)
+ - [Data generation model](@datagenerationmodel)
+   - [Road model](@roadmodel)
+   - [Time progression](@timeprogression)
+   - [3rd person perspective](@3rdpersonperspective)
+   - [3D Terrain model](@3dterrainmodel)
+ - [SimWorld inhabitants](@simworldinhabitants)
+ - [User solutions](@usersolutions)
+ - [Widgets](@widgets)
+ - [A peek under the hood](@apeekunderthehood)
+   - [Software architecture](@softwarearchitecture)
 
 ## Introduction
 
@@ -35,7 +39,9 @@ As the ego vehicle progresses through the road, it comes accross both stationart
 This tool provides a simple Graphical User Interface (GUI), which offsers a visualization of the real-time simulated world, the object detections in each of the surrounding four sensors' field of view, and a text editor to implement the tracking algorithm code.
 A detailed description of the GUI can be found in the [Graphical User Interface](@graphicaluserinterface) section.
 
-![ADAS_SimWorld_RoadMapTopView](https://user-images.githubusercontent.com/111191306/199146067-70effa9f-62b3-4fd1-beb6-2a39eb8d4650.png)
+<p align="center">
+<img src="doc/pictures/ADAS_SimWorld_RoadMapTopView.png" />
+</p>
 
 ## Graphical User Interface
 
@@ -46,7 +52,9 @@ The GUI is divided into 5 components, as illustrated in the figure below:
  4. [User code editor](@rsercodeeditor)
  5. [Speedometer widget](@speedometerwidget)
 
-![ADAS_SimWorld_GUI](https://user-images.githubusercontent.com/111191306/199229682-0ac34436-9d05-49e0-834b-fadfa18b4472.png)
+<p align="center">
+<img src="doc/pictures/ADAS_SimWorld_GUI.png" />
+</p>
 
 ### Main control panel
 
@@ -88,7 +96,7 @@ A simple speedometer widget is included as part of the base software as an examp
 In this case, this speedometer displayes the instant ego speed in km/h, as well as the cumulative travelled distance.
 
 <p align="center">
-<img src="doc/videos/ADAS_SimWorld_widgetSpeedometer.gif" />
+<img width=250 src="doc/videos/ADAS_SimWorld_widgetSpeedometer.gif" />
 </p>
 
 ## Data generation model
@@ -124,7 +132,7 @@ $$
 where $s$ is a geometrical parameterization, and $f_\mathrm{road}^{(j)}(s),\ j = \{x,y,z\}$ are the road's cartesian component functions.
 Programmatically, $s$ is defined by an array, while $F_{\mathrm{road}}$ is defined by a set of equations.
 
-For simplicity, this base implementation defines $f_\mathrm{road}^{(z)}(s)$ as null, and $f_\mathrm{road}^{(y)}(s)$ as a function of its $f_\mathrm{road}^{(x)}(s)$, i.e., 
+For simplicity, this base implementation defines $f_\mathrm{road}^{(z)}(s)$,  $f_\mathrm{road}^{(x)}(s) = s$, and $f_\mathrm{road}^{(y)}(s)$ as a function of its $f_\mathrm{road}^{(x)}(s)$, i.e., 
 
 $$
 F_{\mathrm{road}}(s) =
@@ -147,7 +155,8 @@ $$
 
 where $T$ is the road period, and thus $s\in\left[nT ,mT \right],\ n < m\ \mathrm{and}\ n,m\in\mathbb{Z}$.
 
-It isimportant to notice that $f_\mathrm{road}^{(y)}(x)$ only defines the _center_ of the road.
+Hence, for simplicity, let us from now on assume that the road is defined along the $XY$ plane (its $z$ component is null).
+It is important to notice that $f_\mathrm{road}^{(y)}(x)$ only defines the _center_ of the road.
 Since moving objects do not all move along the center, each road lane must be defined along a perpendicular expansion of $f_\mathrm{road}^{(y)}(x)$.
 This can be achieved by calculating the vector $U(s)$ that is perpendicular to $F_{\mathrm{road}}(s)$ along the $s$ parameterization,
 
@@ -155,29 +164,33 @@ $$
 U(s) = 
 \begin{bmatrix}
 u_x(s)\\
-u_y(s)
+u_y(s)\\
+u_z(s)
 \end{bmatrix} =
 \frac{\mathrm{d}}{\mathrm{d}s} 
 \begin{bmatrix}
 -f_\mathrm{road}^{(y)}(s)\\
-f_\mathrm{road}^{(x)}(s)
+f_\mathrm{road}^{(x)}(s)\\
+0
 \end{bmatrix}
 $$
 
 which, in its normalized form $U_n$,
 
 $$
-U_n(s) = 
-\frac{U(s)}{\sqrt{u_x^2(s) + u_y^2(s)}}
+U_n(s) =
+\frac{U_n(s)}{||U_n(s)||} = 
+\frac{U(s)}{\sqrt{u_x^2(s) + u_y^2(s) + u_z^2(s)}}
 $$
 
-can be used to express the function $F_\mathrm{lane}$ for a lane displace from the road center by the distance $w$ as:
+can be used to express the function $F_\mathrm{lane}$ for a lane displace from the road center by the distance $w,\ w \in \mathbb{R}$ as:
 
 $$
 F_\mathrm{lane}(s) =
 \begin{bmatrix}
 f_\mathrm{lane}^{(x)}(s)\\
-f_\mathrm{lane}^{(y)}(s)
+f_\mathrm{lane}^{(y)}(s)\\
+0
 \end{bmatrix} =
 F_\mathrm{road}(s) + wU_n(s)
 $$
@@ -188,7 +201,8 @@ $$
 F_\mathrm{lane}(s) = 
 \begin{bmatrix}
 f_\mathrm{road}^{(x)} - w \frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(y)} \Bigg/ \sqrt{ \left(\frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(x)}\right)^2 + \left(\frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(y)}\right)^2 }\\
-f_\mathrm{road}^{(y)} + w \frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(x)} \Bigg/ \sqrt{ \left(\frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(x)}\right)^2 + \left(\frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(y)}\right)^2 }
+f_\mathrm{road}^{(y)} + w \frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(x)} \Bigg/ \sqrt{ \left(\frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(x)}\right)^2 + \left(\frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(y)}\right)^2 }\\
+0
 \end{bmatrix}
 $$
 
@@ -196,12 +210,85 @@ where the $s$ dependencies on the right side of the equals sign are omitted for 
 The figure below illustrates the lane widening obtained using the equations above.
 
 <p align="center">
-<img height=250 src="https://user-images.githubusercontent.com/111191306/199353113-cd71cc65-7dce-4f77-adb2-0413c04c5f46.png">
+<img height=250 src="doc/pictures/ADAS_SimWorld_model_roadLane.png">
 </p>
 
-As shown ahead in the [Time progression and 3rd person perspective](@timeprogressionand3rdpersonperspective) section, $F_\mathrm{lane}(s)$ is used not only to draw the road edges, but also to define the trajectory of each moving object.
+As shown ahead in the [Time progression](@timeprogression) section, $F_\mathrm{lane}(s)$ is used not only to draw the road edges, but also to define the trajectory of each moving object.
 
-### Time progression and 3rd person perspective
+### Time progression
+
+ADAS SimWorld uses a very simple time progression scheme, where the position of moving objects is governed by a universal equation
+
+$$
+s(t) = v_st
+$$
+
+where $v_s$ is a constant speed along the parameterization $s$ and $t$ is the time, obtained at iteration $k$ by
+
+$$
+t_k = t_{k-1} + \delta t
+$$
+
+where $\delta t$ is the simulation's temporal resolution.
+Using this, the position of a given moving object (including the ego vehicle), given by
+
+$$
+P_\mathrm{mov}(s,t) = 
+\begin{bmatrix}
+p_\mathrm{mov}^{(x)}(s,t)\\
+p_\mathrm{mov}^{(y)}(s,t)\\
+p_\mathrm{mov}^{(z)}(s,t)
+\end{bmatrix}
+$$
+
+becomes
+
+$$
+P_\mathrm{mov}(s,t) = F_\mathrm{lane}(s(t)) =
+\begin{bmatrix}
+f_\mathrm{lane}^{(x)}(s(t))\\
+f_\mathrm{lane}^{(y)}(s(t))\\
+f_\mathrm{lane}^{(z)}(s(t))
+\end{bmatrix} = 
+\begin{bmatrix}
+f_\mathrm{lane}^{(x)}\bigg|\_{f_\mathrm{road}^{(x)}(s(t))}\\
+f_\mathrm{lane}^{(y)}\bigg|\_{f_\mathrm{road}^{(y)}(s(t))}\\
+f_\mathrm{lane}^{(z)}\bigg|\_{f_\mathrm{road}^{(z)}(s(t))}\\
+\end{bmatrix}
+$$
+
+where the $A\big|\_f$ notation represents the application of operator $A$ to the function $f$. 
+
+Using the above-mentioned simplified case where $f_\mathrm{road}^{(z)}(s) = 0$, $f_\mathrm{road}^{(x)}(s) = s \equiv x$ , and $f_\mathrm{road}^{(y)}(s)$ as a function of its $f_\mathrm{road}^{(x)}(s)$, then $P_\mathrm{mov}(s,t)$ becomes simply
+
+$$
+P_\mathrm{mov}(x,t) = 
+\begin{bmatrix}
+f_\mathrm{lane}^{(x)}\bigg|\_{x(t)}\\
+f_\mathrm{lane}^{(y)}\bigg|\_{f_\mathrm{road}^{(y)}(x(t))}\\
+0
+\end{bmatrix} = 
+\begin{bmatrix}
+x(t) - w \frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(y)}(x(t)) \Bigg/ \sqrt{ \left(\frac{\mathrm{d}}{\mathrm{d}s} x(t)\right)^2 + \left(\frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(y)}(x(t))\right)^2 }\\
+f_\mathrm{road}^{(y)}(x(t)) + w \frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(x)}(x(t)) \Bigg/ \sqrt{ \left(\frac{\mathrm{d}}{\mathrm{d}s} x(t)\right)^2 + \left(\frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(y)}(x(t))\right)^2 }\\
+0
+\end{bmatrix}
+$$
+
+In the present implementation, moving objects are destinguished by their moving direction.
+Objects moving in the same direction as the ego vehicle are labelled as _moving_ objects, while objects moving towards the ego are labelled as _oncoming_ objects.
+The only distintive feature between _moving_ and _oncoming_ objects is that the former are modeled using a negative $v_s$ value, while the later use apositive $v_s$.
+The dynamic properties of the ego vehicle are equivalent to those of _moving_ objects.
+
+The video below illustrates the result of this time progression scheme for all object types, using green, orange, and cyan circles to illustrate _standing_, _moving_, and _oncoming_ objects, respectively.
+The ego vehicle is represented by a red circle.
+
+<p align="center">
+<img src="ADAS_SimWorld_model_timeProgression.gif" />
+</p>
+
+
+### 3rd person perspective
 
 ### 3D Terrain model
 
