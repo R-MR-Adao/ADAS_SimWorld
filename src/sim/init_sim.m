@@ -73,9 +73,9 @@ function sim_world_data = init_sim(sim_world_data)
         obj.off = off;                   % fixed offset
         obj.ux =  @(x) -diff(road.y(x)); % x derivative
         obj.uy =  @(x) diff(x);          % y derivative
-        obj.unx = @(x)...            % perpendicular vector x
+        obj.unx = @(x)...                % perpendicular vector x
             (obj.ux(x))./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
-        obj.uny = @(x)...            % perpendicular vector y
+        obj.uny = @(x)...                % perpendicular vector y
             (obj.uy(x))./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
         obj.x =   @(x)...                % shifted vector x
             x + [obj.unx(x(1:2)).*obj.off obj.unx(x)*obj.off];
@@ -161,7 +161,7 @@ function sim_world_data = init_sim(sim_world_data)
     function obj = init_ego(x_t, road)
         % ADAS SimWorld: Initialize ego vehicle
         
-        obj = [];                % ego properties
+        obj = [];               % ego properties
         obj.v = 8;              % (m/s) ego speed
         obj.x = @(t,x_1) x_t(obj.v,t,x_1); % (m) ego x position;
         obj.y = @(x) road.y(x); % (m) ego y position
@@ -245,11 +245,13 @@ function sim_world_data = init_sim(sim_world_data)
             rand(n,1)*diff(road.x([1 end]))./obj.v;
         obj.off = -2.5*(1:n)';
         obj.lane = init_mov_lane(road, obj.off);
-        obj.x_t = @(t,x_1)...     % (m) moving object x position;
+        obj.x_t = @(t,x_1)...   % (m) moving object x position;
             x_t(obj.v,t+obj.t0,x_1); 
-        obj.x = @(t,dt,x_1) obj.lane.x(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); % (m) moving object y position
-        obj.y = @(t,dt,x_1) obj.lane.y(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); % (m) moving object y position
-        obj.x_1 = zeros(n,1); % (m) moving object last x
+        obj.x = @(t,dt,x_1) ... % (m) moving object y position
+            obj.lane.x(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); 
+        obj.y = @(t,dt,x_1) ... % (m) moving object y position
+            obj.lane.y(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); 
+        obj.x_1 = zeros(n,1);   % (m) moving object last x
         % object cube (visualization)
         for ii = 1 : n
             obj.cube(ii).dimensions = [4 1.9 1.6];

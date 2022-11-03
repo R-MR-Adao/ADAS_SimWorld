@@ -295,9 +295,9 @@ Each moving object's rotation about their own rotation center is then obtained f
 
 $$
 \theta_l(t) = \arctan\left(
-\frac{\mathrm{d}}{\mathrm{d}s} \left( f_\mathrm{lane}^{(y)}(s)\bigg|\_{P_\mathrm{mov}(s,t)} \right)
+\frac{\mathrm{d}}{\mathrm{d}t} f_\mathrm{lane}^{(y)}(s(t))
 \bigg/
-\frac{\mathrm{d}}{\mathrm{d}s} \left( f_\mathrm{lane}^{(x)}(s)\bigg|\_{P_\mathrm{mov}(s,t)} \right)
+\frac{\mathrm{d}}{\mathrm{d}t} f_\mathrm{lane}^{(x)}(s(t))
 \right)
 $$
 
@@ -355,14 +355,69 @@ P_r^{(\theta)} =
 R(\theta)P \\
 p_z
 \end{bmatrix}
-\equiv \mathcal{R}(P)
+\equiv \mathcal{R}(\theta,P)
 $$
 
-For syntax simplicity, let $\mathcal{R}(P)$ be the function that calculates $P_r^{(\theta)}$ from $P$ in the above manner.
+For syntax simplicity, let $\mathcal{R}(\theta,P)$ be the function that calculates $P_r^{(\theta)}$ from $P$ in the above manner.
+
+Objects' coordinates can be rotated using $\mathcal{R}(\theta,P)$ around the objects's own center of rotation (e.g.as the object moves along the road), and/or about the ego vehicle (for 3rd person perspective).
+The former does not change the objects position, but merely rotates the coordinates of the vertices that make up its cube around the $Z$ axis.
+The latter is addressed in more detail in the [3rd person perspective](@3rdpersonperspective) section.
+The application of $\mathcal{R}(\theta,P)$ is illustrated the video below.
+
+<p align="center">
+<img src="doc/videos/ADAS_SimWorld_model_Rotation.gif" />
+</p>
 
 ### 3rd person perspective
 
-The 3rd persion perspective around the ego vehicke is obtained by rotating each object in the simulation space (including the road) around the ego vehicle.
+The 3rd persion perspective around the ego vehicke (bottom-right axes of the GUI) is obtained by rotating each object in the simulation space (including the road) around the ego vehicle.
+Hence, the ego vehicle itself is represented (in red) as a stationary object at position $(0,0)$, while every other object is rotated about the $Z$ axis by the angle $\theta_\mathrm{ego}(t)$, the orientation of the ego vehicle at time $t$, relative to the $X$ axis.
+$\theta_\mathrm{ego}(t)$ can be calculated analogously to $\theta_l(t)$.
+Considering that the ego vehicle moves directly along the road function ($w_\mathrm{ego} = 0$), then we can express it as
+
+$$
+\theta_\mathrm{ego}(t) = -\arctan\left(
+\frac{\mathrm{d}}{\mathrm{d}t} f_\mathrm{road}^{(y)}(s(t))
+\bigg/
+\frac{\mathrm{d}}{\mathrm{d}t} f_\mathrm{road}^{(x)}(s(t))
+\right) = -
+\arctan\left(
+\frac{\mathrm{d}}{\mathrm{d}t} f_\mathrm{road}^{(y)}(x(t))
+\bigg/
+\frac{\mathrm{d}}{\mathrm{d}t} x(t)
+\right)
+$$
+
+where the minus sign is used by convention to simplify the notation of objects around the ego vehicle.
+
+Hence, the total object rotation can be expressed as 
+
+$$
+C_{r,\mathrm{stand}}^{(\theta_\mathrm{ego})}(t) = \mathcal{R}(\theta_\mathrm{ego}(t),C_\mathrm{stand})
+$$
+
+for standing objects, and 
+
+$$
+C_{r,\mathrm{mov}}^{(\theta_\mathrm{ego}+\theta_l)}(t) = \mathcal{R}(\theta_\mathrm{ego}(t) + \theta_l(t),C_\mathrm{mov})
+$$
+
+for the moving objects, where $C_\mathrm{stand}$ and $C_\mathrm{stand}$ represent the list of vertices that make up the shape of standing and moving objects, respectively.
+
+As to the objects' position, all objects (stationary and moving alike) have their position vectors $P$ rotated around the $Z$ axis by the angle $\theta_\mathrm{ego}(t)$, i.e.,
+
+$$
+P_{r,j}^{(\theta_\mathrm{ego})}(t) = \mathcal{R}(\theta_\mathrm{ego}(t),P_j)
+$$
+
+where $j = \{\mathrm{stand},\ \mathrm{mov}\}$.
+
+The figure below illustrates both the orientation and position rotation around the ego vehicle performed to obtain the 3rd person's perspective view.
+
+<p align="center">
+<img src="doc\pictures\ADAS_SimWorld_model_3rdPersonPerspective.png"/>
+</p>
 
 ### 3D Terrain model
 

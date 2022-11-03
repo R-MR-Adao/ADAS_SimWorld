@@ -382,7 +382,7 @@ function sim_world_data = update_sim(sim_world_data)
             if (fov(1,1) <= obj_x(ii)) && (obj_x(ii) <= fov(2,1)) && ...
                     (fov(1,2) <= obj_y(ii)) && (obj_y(ii) <= fov(2,2))
                 obj.shape(ii).center = [obj_x(ii),obj_y(ii),0];
-                obj.shape(ii).theta  = theta/pi*180 + 90;
+                obj.shape(ii).theta  = theta/pi*180;
                 obj.shape(ii)        = funcs.sim.init_tree(obj.shape(ii));
             end
         end
