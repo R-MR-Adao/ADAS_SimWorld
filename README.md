@@ -24,6 +24,9 @@ It was designed for mainly for didatic purposes,and the prototyping of simple de
    - [3rd person perspective](@3rdpersonperspective)
    - [3D Terrain model](@3dterrainmodel)
  - [SimWorld inhabitants](@simworldinhabitants)
+  - [Ego Vehicle](@egovehicle)
+  - [Moving objects](@movingobjects)
+  - [Standing Objects](@standingobjects)
  - [User solutions](@usersolutions)
  - [Widgets](@widgets)
  - [A peek under the hood](@apeekunderthehood)
@@ -457,9 +460,82 @@ where $a$ and $c$ are optimized to fit the road width, and the road area itself 
 
 ## SimWorld inhabitants
 
-### Stationary objects
+The three types of SimWorld objects can be distinguished by their shape and color, as shown in the figure below.
+
+<p align="center">
+<img width=600 src="doc/pictures/ADAS_SimWorld_Objects.png"/>
+</p>
+
+Apart from the _moving_ and _oncoming_ objects, which are both of the type moving object, each object type has unique properties, as listed below:
+
+### Ego Vehicle
+Kinematic properties:
+ - `v`: (m/s) ego speed
+ - `x(t,x_1)`: (m) ego $x$ position function
+ - `y(x)`: (m) ego $y$ position function
+ - `x_1`: (m) ego $x$ position in previous cycle
+ - `theta`:(rad) ego orientation
+ 
+ Note: `ego.theta` is the only angle defined in radians.
+ This is done by convention to clearly destinguish between the object rotation (translation about ego vehicle) and orientation (object's orientation) angles when implementing the 3rd person visualization.
+
+Visualization properties:
+ - `cube`: cube object for graphical representation
+ - `cube.dimensions`: (m) cube dimensions
+ - `center`: (m) cube center position
+ - `cube.theta`: ($^o$) cube orientation
+ 
+Sensor properties:
+ - `sensor`: sensor object
+ - `sensor.n`: number of sensors
+ - `sensor.fov.range`: (m) sensor range
+ - `sensor.fov.theta`: (deg) sensor angular range
+ - `sensor.theta`: (deg) sensor orientation
+ - `sensor.fov.draw`: sensor drawing object
+ - `sensor.fov.draw.s`: sensor drawing parameter
+ - `sensor.fov.draw.fov`: sensors field of view edge
+ - `sensor.fov.draw.circ`: sensor-specific FoV edges
+ - `sensor.key`: sensor mounting position
 
 ### Moving objects
+
+Kinematic properties:
+ - `n`: number of moving objects
+ - `v`: (m/s) moving object speed
+ - `t0`: (s) random starting position (modelled by a time $t_0$ along $x(t)$)
+ - `off`: (m) y offset relative to ego (lane position)
+ - `lane`: lane object
+ - `x_t(t,x_1)`: (m) moving object x position function
+ - `x(t,dt,x_1)`: (m) in-lane moving object x position
+ - `y(t,dt,x_1)`; (m) in-lane moving object y position
+ - `x_1`: (m) moving object x position in previous cycle
+ 
+ Visualization properties:
+ - `cube`: list of cube objects
+ - `cube(:).dimensions`: (m) mocing object dimensions
+ - `cube(:).theta`: (deg) cube orientation
+ - `cube(:).x`: (m) cube center x position
+ - `cube(:).y`: (m) cube center y position
+ - `cube(:).z`: (m) cube center z position
+ - `cube(:).idx`: cube vertex drawing indices
+
+### Standing objects
+
+Kinematic properties:
+ - `n`: standing (static) objects properties
+ - `x`: (m) standing object x position
+ - `y`: (m) standing object y position
+ - `z`: (m) standing object z position
+ 
+Visualization properties
+ - `faces`: indices of tree-shaped patch faces
+ - `color`: standing object color map
+ - `shape`: list of shape objects
+ - `shape(:).dimensions`: randomized tree-shape dimensions
+ - `shape(:).theta0`: shape initial orientation
+ - `shape(:).theta`: ego orientation (required for 3rd person perspective rotation)
+ - `shape(:).faces`: object-specific patch faces
+ - `shape(:).vertices`: shape vertixes
 
 ## User solutions
 
