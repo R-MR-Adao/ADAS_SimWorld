@@ -150,9 +150,9 @@ function sim_world_data = init_sim(sim_world_data)
                 road_area.Z_ = @(X,Y)...            % 2D Gaussian
                     road.terrain.a*exp(-((Y-road.y(X))/road.terrain.c).^2);
                 
-                % subtract amplitude and apply 3.75 m correction
+                % subtract amplitude and apply 1.9 m correction (ego width)
                 road_area.Z = @(X,x0,Y,y0)...
-                    road_area.Z_(X+x0,Y+y0-3.75) - road.terrain.a;
+                    road_area.Z_(X+x0,Y+y0-1.9) - road.terrain.a;
                 
         end
         road_area.type = type;

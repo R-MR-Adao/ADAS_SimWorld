@@ -421,6 +421,40 @@ The figure below illustrates both the orientation and position rotation around t
 
 ### 3D Terrain model
 
+SimWorld's terrain is modelled by defining its elevation ($z$ component) using a 2D [Gaussian function](https://en.wikipedia.org/wiki/Gaussian_function), which is typically expressed as
+
+$$
+G_\mathrm{2D} = a\exp\left(-\left(\frac{
+\sqrt{ (\mathcal{X} - b_1)^2 + (\mathcal{Y} -b_2)^2 } }
+{c} \right)^2\right)
+$$
+
+where $\mathcal{X}$ and $\mathcal{Y}$ are the meshgrids that defined the $XY$ plane, $a$ and $c$ are the peak height and width of the Gaussian distribution, and $(b_1,b_2)$ are the $(x,y)$ coordinates of the Gaussian peak center.
+This leads to a single-peaked distribution as depicted below.
+
+In SimWorld, however, instead of a single-peak distribution, a modification of the 2D Gaussian is used to represent the 3D terrain along the road by modulating an _extended_ Gaussian peak along $\mathcal{Y} = f_\mathrm{road}^{(y)}(\mathcal{X})$, i.e.,
+
+$$
+G_\mathrm{road} = a\exp\left(-\left(\frac{
+\sqrt{ \left(\mathcal{Y} - f_\mathrm{road}^{(y)}(\mathcal{X})\right)^2 }}
+{c} \right)^2\right) =
+a\exp\left(-\left(\frac{\mathcal{Y} - f_\mathrm{road}^{(y)}(\mathcal{X}) }{c} \right)^2\right)
+$$
+
+The figure below illustrates the difference between the typical single-peaked 2D Gaussian function, and the SimWorld road-Gaussian
+
+<p align="center">
+<img width=800 src="doc\pictures\ADAS_SimWorld_model_3DTerrain.png"/>
+</p>
+
+Yet, since the road is by convention of the current implementation restricted to the $XY$ plane ($f_\mathrm{road}^{(z)}(s) = 0$), the terrain topography is effectively obtained by
+
+$$
+T_\mathrm{road} = a\left(\exp\left(-\left(\frac{\mathcal{Y} - f_\mathrm{road}^{(y)}(\mathcal{X}) }{c} \right)^2\right) - 1\right)
+$$
+
+where $a$ and $c$ are optimized to fit the road width, and the road area itself is cropped out of $T_\mathrm{road}$.
+
 ## SimWorld inhabitants
 
 ### Stationary objects
