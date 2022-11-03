@@ -20,6 +20,7 @@ It was designed for mainly for didatic purposes,and the prototyping of simple de
  - [Data generation model](@datagenerationmodel)
    - [Road model](@roadmodel)
    - [Time progression](@timeprogression)
+   - [Coordinate rotations](@coordinaterotations)
    - [3rd person perspective](@3rdpersonperspective)
    - [3D Terrain model](@3dterrainmodel)
  - [SimWorld inhabitants](@simworldinhabitants)
@@ -284,11 +285,84 @@ The video below illustrates the result of this time progression scheme for all o
 The ego vehicle is represented by a red circle.
 
 <p align="center">
-<img src="ADAS_SimWorld_model_timeProgression.gif" />
+<img src="doc/videos/ADAS_SimWorld_model_timeProgression.gif" />
 </p>
 
+As the video shows, objects move continuously along the priod road (an object moving out of one end of the map comes back from the opposite one).
+More information about this periodicity implementation is provided in the [A peek under the hood](@apeekunderthehood) section.
+
+Each moving object's rotation about their own rotation center is then obtained from the orientation $\theta_l$ of the object's lane at their current position $P_\mathrm{mov}(x,t)$, relative to the $X$ axis
+
+$$
+\theta_l(t) = \arctan\left(
+\frac{\mathrm{d}}{\mathrm{d}s} \left( f_\mathrm{lane}^{(y)}(s)\bigg|\_{P_\mathrm{mov}(s,t)} \right)
+\bigg/
+\frac{\mathrm{d}}{\mathrm{d}s} \left( f_\mathrm{lane}^{(x)}(s)\bigg|\_{P_\mathrm{mov}(s,t)} \right)
+\right)
+$$
+
+Details about how object rotations are obtained can be found in the [Coordinate rotations](@coordinaterotations) section.
+
+### Coordinate rotations
+
+All coordinate transformations are performed using [rotation matrices](https://en.wikipedia.org/wiki/Rotation_matrix).
+
+$$
+R_{X}(\theta) = 
+\begin{bmatrix}
+1 & 0            & 0            \\
+0 & \cos(\theta) & -\sin(\theta)\\
+0 & \sin(\theta) & \cos(\theta)
+\end{bmatrix},\ \  
+R_{Y}(\theta) = 
+\begin{bmatrix}
+\cos(\theta) & 0 & \sin(\theta)\\
+0            & 1 & 0           \\
+-\sin(\theta) & 0 & \cos(\theta)
+\end{bmatrix},\ \  
+R_{Z}(\theta) = 
+\begin{bmatrix}
+\cos(\theta) & -\sin(\theta) & 0\\
+\sin(\theta) & \cos(\theta)  & 0\\
+0            &               & 1
+\end{bmatrix}
+$$
+
+where $R_X$, $R_Y$, and $R_Z$ are the rotation matrices that rotate a cartezian matrix $A$ around the $X$, $Y$, and $Z$ axes, respectively by
+
+$$
+A_r^{(\theta)} = R_j(\theta)A
+$$
+
+where $A_r^{(\theta)}$ is the rotation of matrix $A$ by and angle $\theta$ about the $j$ axis, with $j = \{X,Y,Z\}$.
+
+Since we have pre-established that in the present SimWorld implementation the road is limited to the $XY$ plane, all the necessary rotations are performed about the $Z$ axis.
+Thus, instead of performing a lot of unnecessary calculations (multiplying and suming a lot of ones and zeros), it is computationally more efficient to simply reduce the rotation to a 2D problem 
+
+$$
+R(\theta) = 
+\begin{bmatrix}
+\cos(\theta) & -\sin(\theta)\\
+\sin(\theta) & \cos(\theta)
+\end{bmatrix}
+$$
+
+and allow all rotated objects to retain their $z$ components, i.e. for a matrix $P = [p_x\ \ p_y\ \ p_z]^\intercal$, its rotated matrix $P_r^{(\theta)}$ is given by
+
+$$
+P_r^{(\theta)} =
+\begin{bmatrix}
+R(\theta)P \\
+p_z
+\end{bmatrix}
+\equiv \mathcal{R}(P)
+$$
+
+For syntax simplicity, let $\mathcal{R}(P)$ be the function that calculates $P_r^{(\theta)}$ from $P$ in the above manner.
 
 ### 3rd person perspective
+
+The 3rd persion perspective around the ego vehicke is obtained by rotating each object in the simulation space (including the road) around the ego vehicle.
 
 ### 3D Terrain model
 

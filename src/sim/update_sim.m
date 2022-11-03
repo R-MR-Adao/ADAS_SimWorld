@@ -347,7 +347,7 @@ function sim_world_data = update_sim(sim_world_data)
         
         % rotation matrix
         r = @(x,y,t) [x(:),y(:)]*[cos(t) -sin(t);...
-                                  sin(t)  cos(t)];
+                                  sin(t)  cos(t)]';
         % rmove offset
         x = x - x_ref;
         y = y - y_ref;
@@ -359,7 +359,7 @@ function sim_world_data = update_sim(sim_world_data)
             % calculate rotation angle
             dx = x(i_root+1) - x(i_root);
             dy = y(i_root+1) - y(i_root);
-            theta = atan2(dy,dx);
+            theta = -atan2(dy,dx);
         else
             theta = varargin{1}{5};
         end
@@ -395,7 +395,7 @@ function sim_world_data = update_sim(sim_world_data)
             if (fov(1,1) <= obj_x(ii)) && (obj_x(ii) <= fov(2,1)) && ...
                     (fov(1,2) <= obj_y(ii)) && (obj_y(ii) <= fov(2,2))
                 obj.cube(ii).center = [obj_x(ii),obj_y(ii),0];
-                obj.cube(ii).theta  = theta/pi*180 - obj.theta(ii)+90;
+                obj.cube(ii).theta  = theta/pi*180 + obj.theta(ii);
                 obj.cube(ii)        = funcs.sim.init_cube(obj.cube(ii));
             end
         end

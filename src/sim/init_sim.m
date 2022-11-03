@@ -281,14 +281,14 @@ function sim_world_data = init_sim(sim_world_data)
         end
         
         rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t) ;... % rotation matrix
-                                   sind(t)  cosd(t)];
+                                   sind(t)  cosd(t)]';
 
         % basic cube geometry
         coord = [-1 -1 0;1 -1 0;1 1 0;-1 1 0;-1 -1 2;1 -1 2;1 1 2;-1 1 2];
         % apply input properties
         coord = bsxfun(@times,coord/2,dimensions);
         coord = bsxfun(@plus,...
-            [rd(coord(:,1),coord(:,2),theta+90),coord(:,3)],...
+            [rd(coord(:,1),coord(:,2),theta),coord(:,3)],...
             center);
         % vertex indices
         cube.idx = [4 8 5 1 4; 1 5 6 2 1; 2 6 7 3 2;...
@@ -318,7 +318,7 @@ function sim_world_data = init_sim(sim_world_data)
         end
         
         rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t) ;... % rotation matrix
-                                   sind(t)  cosd(t)];
+                                   sind(t)  cosd(t)]';
                                
         % draw treeform shape
         vert = [-1 -1 0; -1 1 0; 1 1 0; 1 -1 0;...
