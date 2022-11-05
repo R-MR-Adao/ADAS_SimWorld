@@ -23,14 +23,15 @@ It was designed for mainly for didatic purposes,and the prototyping of simple de
    - [Coordinate rotations](@coordinaterotations)
    - [3rd person perspective](@3rdpersonperspective)
    - [3D Terrain model](@3dterrainmodel)
- - [SimWorld inhabitants](@simworldinhabitants)
-  - [Ego Vehicle](@egovehicle)
-  - [Moving objects](@movingobjects)
-  - [Standing Objects](@standingobjects)
+   - [Sensor detections](@sensordetections)
  - [User solutions](@usersolutions)
- - [Widgets](@widgets)
  - [A peek under the hood](@apeekunderthehood)
    - [Software architecture](@softwarearchitecture)
+    - [SimWorld inhabitants](@simworldinhabitants)
+    - [Ego Vehicle](@egovehicle)
+    - [Moving objects](@movingobjects)
+    - [Standing Objects](@standingobjects)
+ - [Widgets](@widgets)
 
 ## Introduction
 
@@ -183,7 +184,7 @@ which, in its normalized form $U_n$,
 
 $$
 U_n(s) =
-\frac{U_n(s)}{||U_n(s)||} = 
+\frac{U_n(s)}{\lVert U_n(s) \rVert} = 
 \frac{U(s)}{\sqrt{u_x^2(s) + u_y^2(s) + u_z^2(s)}}
 $$
 
@@ -214,7 +215,7 @@ where the $s$ dependencies on the right side of the equals sign are omitted for 
 The figure below illustrates the lane widening obtained using the equations above.
 
 <p align="center">
-<img height=250 src="doc/pictures/ADAS_SimWorld_model_roadLane.png">
+<img width=700 src="doc/pictures/ADAS_SimWorld_model_roadLane.png">
 </p>
 
 As shown ahead in the [Time progression](@timeprogression) section, $F_\mathrm{lane}(s)$ is used not only to draw the road edges, but also to define the trajectory of each moving object.
@@ -411,7 +412,7 @@ for the moving objects, where $C_\mathrm{stand}$ and $C_\mathrm{stand}$ represen
 As to the objects' position, all objects (stationary and moving alike) have their position vectors $P$ rotated around the $Z$ axis by the angle $\theta_\mathrm{ego}(t)$, i.e.,
 
 $$
-P_{r,j}^{(\theta_\mathrm{ego})}(t) = \mathcal{R}(\theta_\mathrm{ego}(t),P_j)
+P_{r,j}^{(\theta_\mathrm{ego})}(t) = \mathcal{R}(\theta_\mathrm{ego}(t),P_j(t))
 $$
 
 where $j = \{\mathrm{stand},\ \mathrm{mov}\}$.
@@ -458,7 +459,49 @@ $$
 
 where $a$ and $c$ are optimized to fit the road width, and the road area itself is cropped out of $T_\mathrm{road}$.
 
-## SimWorld inhabitants
+### Sensor detections
+
+The sensor readings are obtained in two simple steps:
+First, rotating the position of all SimWorld objects around the ego vehicle by the sensor mounting angle $\theta_s$;
+
+$$
+P_{r,j}^{(\theta_s)}(t) = 
+\begin{bmatrix}
+p_{r,j}^{(\theta_s,x)}(t) \\
+p_{r,j}^{(\theta_s,y)}(t)
+\end{bmatrix} =
+\mathcal{R}\left(\theta_s,P_{r,j}^{(\theta_\mathrm{ego})}(t)\right) 
+$$
+
+where $j = \{\mathrm{stand},\ \mathrm{mov}\}$.
+Then, determining which objects lie within the sensor field field of view, i.e., the objects whose distance $d_P^{(s)}(t)$ from the sensor
+
+$$
+d_P^{(s)}(t) = \left\lVert P_{r,j}^{(\theta_s)}(t) \right\rVert
+$$
+
+is shorter than the sensor range $r_s$, and agular position $\theta_P^{(s)}(t)$ relative to the sensor frame
+
+$$
+\theta_P^{(s)}(t) = \arctan\left( 
+p_{r,j}^{(\theta_s,y)}(t) \bigg/ p_{r,j}^{(\theta_s,x)}(t)
+\right)
+$$
+
+lies within the sensor angular range $[-\theta_s/2, \theta_s/2]$, as illustrated in the figure blow.
+
+<p align="center">
+<img src="doc/pictures/ADAS_SimWorld_model_sensorDetections.png"/>
+</p>
+
+
+## User solutions
+
+## A peek under the hood
+
+### Software architecture
+
+### SimWorld inhabitants
 
 The three types of SimWorld objects can be distinguished by their shape and color, as shown in the figure below.
 
@@ -483,7 +526,7 @@ Visualization properties:
  - `cube`: cube object for graphical representation
  - `cube.dimensions`: (m) cube dimensions
  - `center`: (m) cube center position
- - `cube.theta`: ($^o$) cube orientation
+ - `cube.theta`: (deg) cube orientation
  
 Sensor properties:
  - `sensor`: sensor object
@@ -537,10 +580,5 @@ Visualization properties
  - `shape(:).faces`: object-specific patch faces
  - `shape(:).vertices`: shape vertixes
 
-## User solutions
-
 ## Widgets
 
-## A peek under the hood
-
-### Software architecture
