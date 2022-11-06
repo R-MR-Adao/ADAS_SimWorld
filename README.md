@@ -3,48 +3,46 @@
 ![ADAS_SimWorld_wide](https://user-images.githubusercontent.com/111191306/198900690-c87a708c-2ea7-41a6-b735-091224d945b8.png)
 
 
-SimWorld is a synthetic data egenration tool for the simulation of sensor-based object detection and tracking araound an ego vechicle in an [Advanced Driver Assistance System (ADAS)](https://en.wikipedia.org/wiki/Advanced_driver-assistance_system).
-It was designed for mainly for didatic purposes,and the prototyping of simple detection and tracking algortihms.
+SimWorld is a synthetic data generation tool for the simulation of sensor-based object detection and tracking around an ego vehicle in an [Advanced Driver Assistance System (ADAS)](https://en.wikipedia.org/wiki/Advanced_driver-assistance_system). 
+It was designed for mainly for didactic purposes, and the prototyping of simple detection and tracking algorithms. 
 
 <p align="center">
 <img src="doc/videos/ADAS_SimWorld_basic.gif" />
 </p>
 
 ## Table Contents
- - [Introduction](@introduction)
- - [Graphical User Interface](@graphicaluserinterface)
-   - [Main control panel](@maincontrolpanel)
-   - [Simulation visualizations](@simulationvisualizations)
-   - [User code editor](@rsercodeeditor)
-   - [Speedometer widget](@speedometerwidget)
- - [Data generation model](@datagenerationmodel)
-   - [Road model](@roadmodel)
-   - [Time progression](@timeprogression)
-   - [Coordinate rotations](@coordinaterotations)
-   - [3rd person perspective](@3rdpersonperspective)
-   - [3D Terrain model](@3dterrainmodel)
-   - [Sensor detections](@sensordetections)
- - [User solutions](@usersolutions)
-  - [Solution 1: No tracking](@Solution1:Notracking)
-  - [Solution 2: 2-cycle object tracking and classification](@Solution2:2-cycleobjecttrackingandclassification)
- - [A peek under the hood](@apeekunderthehood)
-   - [Software architecture](@softwarearchitecture)
-    - [SimWorld inhabitants](@simworldinhabitants)
-    - [Ego Vehicle](@egovehicle)
-    - [Moving objects](@movingobjects)
-    - [Standing Objects](@standingobjects)
- - [Widgets](@widgets)
+ - [Introduction](#introduction)
+ - [Graphical User Interface](#graphical-user-interface)
+   - [Main control panel](#main-control-panel)
+   - [Simulation visualizations](#simulation-visualizations)
+   - [User code editor](#user-code-editor)
+   - [Speedometer widget](#speedometer-widget)
+ - [Data generation model](#data-generation-model)
+   - [Road model](#road-model)
+   - [Time progression](#time-progression)
+   - [Coordinate rotations](#coordinate-rotations)
+   - [3rd person perspective](#3rd-person-perspective)
+   - [3D Terrain model](#3d-terrain-model)
+   - [Sensor detections](#sensor-detections)
+ - [User solutions](#user-solutions)
+   - [Solution 1: No tracking](#solution-1-no-tracking)
+   - [Solution 2: 2-cycle object tracking and classification](#solution-2-2-cycle-object-tracking-and-classification)
+ - [A peek under the hood](#a-peek-under-the-hood)
+   - [Software architecture](#software-architecture)
+   - [SimWorld inhabitants](#simworld-inhabitants)
+   - [Ego Vehicle](#ego-vehicle)
+   - [Moving objects](#moving-objects)
+   - [Standing Objects](#standing-objects)
 
 ## Introduction
 
-ADAS SimWorld is a simple MATLAB toolbox for the quick visualization of synthethically-generated sensor detections and the prototyping of simple objetc tracking and classification algorithms.
-It simulates the motion of an ego vehicle along a (periodic) road,using four arbitrary sensors to analyze its surroundings.
+ADAS SimWorld is a simple MATLAB toolbox for the quick visualization of synthetically-generated sensor detections and the prototyping of simple object tracking and classification algorithms. 
+It simulates the motion of an ego vehicle along a (periodic) road, using four arbitrary sensors to analyze its surroundings. 
 
-All data is generated "on the fly", using a set of base equations.
-As the ego vehicle progresses through the road, it comes accross both stationart and moving objects, which get detected by the surrounding sensors.
+All data is generated "on the fly", using a set of base equations. 
+As the ego vehicle progresses through the road, it comes across both stationary and moving objects, which get detected by the surrounding sensors. 
 
-This tool provides a simple Graphical User Interface (GUI), which offsers a visualization of the real-time simulated world, the object detections in each of the surrounding four sensors' field of view, and a text editor to implement the tracking algorithm code.
-A detailed description of the GUI can be found in the [Graphical User Interface](@graphicaluserinterface) section.
+This tool provides a simple Graphical User Interface (GUI), which offers a visualization of the real-time simulated world, the object detections in each of the surrounding four sensors' field of view, and a text editor to implement the tracking algorithm code. 
 
 <p align="center">
 <img src="doc/pictures/ADAS_SimWorld_RoadMapTopView.png" />
@@ -53,11 +51,11 @@ A detailed description of the GUI can be found in the [Graphical User Interface]
 ## Graphical User Interface
 
 The GUI is divided into 5 components, as illustrated in the figure below:
- 1. [Main control panel](@maincontrolpanel)
- 2. [Simulation visualizations](@simulationvisualizations)
+ 1. [Main control panel](#main-control-panel)
+ 2. [Simulation visualizations](#simulation-visualizations)
  3. Sensors' Field of View (FoV)
- 4. [User code editor](@rsercodeeditor)
- 5. [Speedometer widget](@speedometerwidget)
+ 4. [User code editor](#user-code-editor)
+ 5. [Speedometer widget](#speedometer-widget)
 
 <p align="center">
 <img src="doc/pictures/ADAS_SimWorld_GUI.png" />
@@ -65,10 +63,10 @@ The GUI is divided into 5 components, as illustrated in the figure below:
 
 ### Main control panel
 
-The main control panel allows reseting, playing and stepping the simulation, as well as setting some basic configurations.
-These include toggling over the active sensors, and setting a few render parameters (such as speed and resolution).
+The main control panel allows resetting, playing and stepping the simulation, as well as setting some basic configurations. 
+These include toggling over the active sensors, and setting a few render parameters (such as speed and resolution). 
 
-The sensor acivation/deactivation is illustrated in the video below.
+The sensor activation/deactivation is illustrated in the video below. 
 
 <p align="center">
 <img src="doc/videos/ADAS_SimWorld_GUI_chooseSensors.gif" />
@@ -76,8 +74,8 @@ The sensor acivation/deactivation is illustrated in the video below.
 
 ### Simulation visualizations
 
-These allow setting the 3D perpective view over the simulation space.
-The video below illustrates how the four sliders surrounding the 3rd person simulation visualizaition panel can be used to control the zoom (top slider), tilt (right slider), pan (left slider) and rotation (bottom slider).
+These allow setting the 3D perspective view over the simulation space. 
+The video below illustrates how the four sliders surrounding the 3rd person simulation visualization panel can be used to control the zoom (top slider), tilt (right slider), pan (left slider) and rotation (bottom slider). 
 
 <p align="center">
 <img src="doc/videos/ADAS_SimWorld_GUI_views.gif" />
@@ -85,12 +83,13 @@ The video below illustrates how the four sliders surrounding the 3rd person simu
 
 ### User code editor
 
-The GUI offers a simple text editor for the user to implement and quickly test their code.
-As of version `1.0`, the user code API includes only the function `reconstruct_360_space`, which is meant to reconstruct the sensor readings from their sensor-specific coordinate systems to the global ego reference.
-Two solutions are provided for this code, with and without object classification algorithmalgorithms.
-The GUI is prepared to host more than one code file to implement different functionalities. The code editor allows choosing the file by a drop down menu at the top-left of the _Main playback_ panel.
+The GUI offers a simple text editor for the user to implement and quickly test their code. 
 
-More information on the implementations can be found in [User solutions](@usersolutions) section.
+As of version `1.0`, the user code API includes only the function `reconstruct_360_space`, which is meant to reconstruct the sensor readings from their sensor-specific coordinate systems to the global ego reference. 
+Two solutions are provided for this code, with and without object classification algorithms. 
+The GUI is prepared to host more than one code file to implement different functionalities. The code editor allows choosing the file by a drop-down menu at the top-left of the _Main playback_ panel. 
+
+More information on the implementations can be found in [User solutions](#user-solutions) section.
 
 <p align="center">
 <img src="doc/videos/ADAS_SimWorld_userCode.gif" />
@@ -100,7 +99,7 @@ More information on the implementations can be found in [User solutions](@userso
 
 Widget modules can be added to the code as extended visualization tool.
 A simple speedometer widget is included as part of the base software as an example of an external add-on.
-In this case, this speedometer displayes the instant ego speed in km/h, as well as the cumulative travelled distance.
+In this case, this speedometer displays the instant ego speed in km/h, as well as the cumulative traveled distance.
 
 <p align="center">
 <img width=250 src="doc/videos/ADAS_SimWorld_widgetSpeedometer.gif" />
@@ -116,11 +115,11 @@ This section highlights the main principles and equations for the data generatio
 The ego's progression along the SimWorld road is obtained from a very simple set of principles and equations.
 
 #### Base principles:
- - The road shape is defined by via a periodic parametrical equation.
+ - The road shape is defined by via a periodic parametric equation.
  - Every object on the road and the elements that build the road itself (e.g. lanes) are governed by the road equation.
- - Each moving object (including the ego vehicle) moved along the road by a fix time dpendence equation.
- - The road's parameterization vector is the only pre-established data array. The position and dynamic properties of every moving objects is then deterministically calculated for each moment in time, from the setp of equations that define their time-dependent p+roperties.
- - The 3rd-person view of SimWorld in the perspective of the ego vehicle is obtained by roatiting every environment element around the ego, by and angle $\theta$ defined by orientation of the road at the ego vehicle's position.
+ - Each moving object (including the ego vehicle) moved along the road by a fix time dependence equation.
+ - The road's parameterization vector is the only pre-established data array. The position and dynamic properties of every moving objects is then deterministically calculated for each moment in time, from the step of equations that define their time-dependent p+properties.
+ - The 3rd-person view of SimWorld in the perspective of the ego vehicle is obtained by rotating every environment element around the ego, by and angle $\theta$ defined by orientation of the road at the ego vehicle's position.
 
 #### Base equations:
 
@@ -136,7 +135,7 @@ f_\mathrm{road}^{(z)}(s)
 \end{bmatrix}
 $$
 
-where $s$ is a geometrical parameterization, and $f_\mathrm{road}^{(j)}(s),\ j = \{x,y,z\}$ are the road's cartesian component functions.
+where $s$ is a geometrical parameterization, and $f_\mathrm{road}^{(j)}(s),\ j = \{x,y,z\}$ are the road's Cartesian component functions.
 Programmatically, $s$ is defined by an array, while $F_{\mathrm{road}}$ is defined by a set of equations.
 
 For simplicity, this base implementation defines $f_\mathrm{road}^{(z)}(s)$,  $f_\mathrm{road}^{(x)}(s) = s$, and $f_\mathrm{road}^{(y)}(s)$ as a function of its $f_\mathrm{road}^{(x)}(s)$, i.e., 
@@ -152,8 +151,8 @@ $$
 
 or in other words, $f_\mathrm{road}^{(x)}(s) = x$ and $f_\mathrm{road}^{(y)}(s)=f_\mathrm{road}^{(y)}(x)$.
 
-As mentioned in ther [Base principles](@baseprinciples), $f_\mathrm{road}^{(y)}(x)$ must be periodic.
-Moreover, the range of the paramterization array $s$ must be an integer multiple of the periodicity of $F_{\mathrm{road}}$.
+As mentioned in the [Base principles](#base-principles), $f_\mathrm{road}^{(y)}(x)$ must be periodic.
+Moreover, the range of the parameterization array $s$ must be an integer multiple of the periodicity of $F_{\mathrm{road}}$.
 This base implementation uses the following function, which complies with these requirements:
 
 $$
@@ -213,14 +212,14 @@ f_\mathrm{road}^{(y)} + w \frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{(x)} \
 \end{bmatrix}
 $$
 
-where the $s$ dependencies on the right side of the equals sign are omitted for sintax simplicity.
+where the $s$ dependencies on the right side of the equals sign are omitted for syntax simplicity.
 The figure below illustrates the lane widening obtained using the equations above.
 
 <p align="center">
 <img width=700 src="doc/pictures/ADAS_SimWorld_model_roadLane.png">
 </p>
 
-As shown ahead in the [Time progression](@timeprogression) section, $F_\mathrm{lane}(s)$ is used not only to draw the road edges, but also to define the trajectory of each moving object.
+As shown ahead in the [Time progression](#time-progression) section, $F_\mathrm{lane}(s)$ is used not only to draw the road edges, but also to define the trajectory of each moving object.
 
 ### Time progression
 
@@ -282,9 +281,9 @@ f_\mathrm{road}^{(y)}(x(t)) + w \frac{\mathrm{d}}{\mathrm{d}s} f_\mathrm{road}^{
 \end{bmatrix}
 $$
 
-In the present implementation, moving objects are destinguished by their moving direction.
-Objects moving in the same direction as the ego vehicle are labelled as _moving_ objects, while objects moving towards the ego are labelled as _oncoming_ objects.
-The only distintive feature between _moving_ and _oncoming_ objects is that the former are modeled using a negative $v_s$ value, while the later use apositive $v_s$.
+In the present implementation, moving objects are distinguished by their moving direction.
+Objects moving in the same direction as the ego vehicle are labeled as _moving_ objects, while objects moving towards the ego are labeled as _oncoming_ objects.
+The only distinctive feature between _moving_ and _oncoming_ objects is that the former are modeled using a negative $v_s$ value, while the later use a positive $v_s$.
 The dynamic properties of the ego vehicle are equivalent to those of _moving_ objects.
 
 The video below illustrates the result of this time progression scheme for all object types, using green, orange, and cyan circles to illustrate _standing_, _moving_, and _oncoming_ objects, respectively.
@@ -294,8 +293,8 @@ The ego vehicle is represented by a red circle.
 <img src="doc/videos/ADAS_SimWorld_model_timeProgression.gif" />
 </p>
 
-As the video shows, objects move continuously along the priod road (an object moving out of one end of the map comes back from the opposite one).
-This is done by keeping track of each object's total travelled distance along the $x$ axis and representing only the remainder of the division by the total length (in $x$) of the road using the [modulo function](https://en.wikipedia.org/wiki/Modulo_operation#:~:text=In%20computing%2C%20the%20modulo%20operation,the%20modulus%20of%20the%20operation).).
+As the video shows, objects move continuously along the periodic road (an object moving out of one end of the map comes back from the opposite one).
+This is done by keeping track of each object's total traveled distance along the $x$ axis and representing only the remainder of the division by the total length (in $x$) of the road using the [modulo function](https://en.wikipedia.org/wiki/Modulo_operation#:~:text=In%20computing%2C%20the%20modulo%20operation,the%20modulus%20of%20the%20operation).).
 
 Each moving object's rotation about their own rotation center is then obtained from the orientation $\theta_l$ of the object's lane at their current position $P_\mathrm{mov}(x,t)$, relative to the $X$ axis
 
@@ -309,7 +308,7 @@ $$
 
 **_NOTE:_** All usages of the $\arctan$ function should be regarded as its `atand2` range-modified implementation.
 
-Details about how object rotations are obtained can be found in the [Coordinate rotations](@coordinaterotations) section.
+Details about how object rotations are obtained can be found in the [Coordinate rotations](#coordinate-rotations) section.
 
 ### Coordinate rotations
 
@@ -336,7 +335,7 @@ R_{Z}(\theta) =
 \end{bmatrix}
 $$
 
-where $R_X$, $R_Y$, and $R_Z$ are the rotation matrices that rotate a cartezian matrix $A$ around the $X$, $Y$, and $Z$ axes, respectively by
+where $R_X$, $R_Y$, and $R_Z$ are the rotation matrices that rotate a Cartesian matrix $A$ around the $X$, $Y$, and $Z$ axes, respectively by
 
 $$
 A_r^{(\theta)} = R_j(\theta)A
@@ -345,7 +344,7 @@ $$
 where $A_r^{(\theta)}$ is the rotation of matrix $A$ by and angle $\theta$ about the $j$ axis, with $j = \{X,Y,Z\}$.
 
 Since we have pre-established that in the present SimWorld implementation the road is limited to the $XY$ plane, all the necessary rotations are performed about the $Z$ axis.
-Thus, instead of performing a lot of unnecessary calculations (multiplying and suming a lot of ones and zeros), it is computationally more efficient to simply reduce the rotation to a 2D problem 
+Thus, instead of performing a lot of unnecessary calculations (multiplying and summing a lot of ones and zeros), it is computationally more efficient to simply reduce the rotation to a 2D problem 
 
 $$
 R(\theta) = 
@@ -368,9 +367,9 @@ $$
 
 For syntax simplicity, let $\mathcal{R}(\theta,P)$ be the function that calculates $P_r^{(\theta)}$ from $P$ in the above manner.
 
-Objects' coordinates can be rotated using $\mathcal{R}(\theta,P)$ around the objects's own center of rotation (e.g.as the object moves along the road), and/or about the ego vehicle (for 3rd person perspective).
+Objects' coordinates can be rotated using $\mathcal{R}(\theta,P)$ around the object's own center of rotation (e.g.as the object moves along the road), and/or about the ego vehicle (for 3rd person perspective).
 The former does not change the objects position, but merely rotates the coordinates of the vertices that make up its cube around the $Z$ axis.
-The latter is addressed in more detail in the [3rd person perspective](@3rdpersonperspective) section.
+The latter is addressed in more detail in the [3rd person perspective](#3rd-person-perspective) section.
 The application of $\mathcal{R}(\theta,P)$ is illustrated the video below.
 
 <p align="center">
@@ -379,7 +378,7 @@ The application of $\mathcal{R}(\theta,P)$ is illustrated the video below.
 
 ### 3rd person perspective
 
-The 3rd persion perspective around the ego vehicke (bottom-right axes of the GUI) is obtained by rotating each object in the simulation space (including the road) around the ego vehicle.
+The 3rd person perspective around the ego vehicle (bottom-right axes of the GUI) is obtained by rotating each object in the simulation space (including the road) around the ego vehicle.
 Hence, the ego vehicle itself is represented (in red) as a stationary object at position $(0,0)$, while every other object is rotated about the $Z$ axis by the angle $\theta_\mathrm{ego}(t)$, the orientation of the ego vehicle at time $t$, relative to the $X$ axis.
 $\theta_\mathrm{ego}(t)$ can be calculated analogously to $\theta_l(t)$.
 Considering that the ego vehicle moves directly along the road function ( $w_\mathrm{ego} = 0$ ), then we can express it as
@@ -427,7 +426,7 @@ The figure below illustrates both the orientation and position rotation around t
 <img src="doc\pictures\ADAS_SimWorld_model_3rdPersonPerspective.png"/>
 </p>
 
-Including the road periodicity in this representation is obtained by always rendering half a road-length ahead and behind of the ego vehicle, while each object's position is represented always within the load length range (rember that in this perspective the ego is represented as stationary at $(0,0,0)$ ).
+Including the road periodicity in this representation is obtained by always rendering half a road-length ahead and behind of the ego vehicle, while each object's position is represented always within the load length range (remember that in this perspective the ego is represented as stationary at $(0,0,0)$ ).
 
 To optimize the rendering speed, objects outside the current zoom field of view are not represented.
 Also, the 3D terrain surfaces is only represented using the `surf` function if the title angle is above $20^o$ and the terrain depth is larger than $5$ m.
@@ -435,7 +434,7 @@ Otherwise, the road is represented using a more efficient (and less pixelized) 2
 
 ### 3D Terrain model
 
-SimWorld's terrain is modelled by defining its elevation ( $z$ component) using a 2D [Gaussian function](https://en.wikipedia.org/wiki/Gaussian_function), which is typically expressed as
+SimWorld's terrain is modeled by defining its elevation ( $z$ component) using a 2D [Gaussian function](https://en.wikipedia.org/wiki/Gaussian_function), which is typically expressed as
 
 $$
 G_\mathrm{2D} = a\exp\left(-\left(\frac{
@@ -491,7 +490,7 @@ $$
 d_P^{(s)}(t) = \left\lVert P_{r,j}^{(\theta_s)}(t) \right\rVert
 $$
 
-is shorter than the sensor range $r_s$, and azimith $\theta_P^{(s)}(t)$ and polar \phi_P^{(s)}(t) angular coordinates relative to the sensor frame
+is shorter than the sensor range $r_s$, and azimuth $\theta_P^{(s)}(t)$ and polar \phi_P^{(s)}(t) angular coordinates relative to the sensor frame
 
 $$
 \theta_P^{(s)}(t) = \arctan\left( 
@@ -524,13 +523,13 @@ and only the azimuth range is considered, as illustrated in the figure blow.
 ## User solutions
 
 The main goal of ADAS SimWorld is to offer a simulation platform for detection processing algorithm prototyping.
-This implementation is mainly focused in the synthetic generation of data that can be used to test new algorithms, or for didatic purposes, so that new-lerners can get acquianted with tracking algorithms.
+This implementation is mainly focused in the synthetic generation of data that can be used to test new algorithms, or for didactic purposes, so that new-learners can get acquainted with tracking algorithms.
 
-Hence, this base implementation offers two simple codes for processing the sensor-wise object detections and transform them from the sensor-specific coordinate systens to the combined 360 $^o$ environment around the ego vehicle, which are described below:
+Hence, this base implementation offers two simple codes for processing the sensor-wise object detections and transform them from the sensor-specific coordinate systems to the combined 360 $^o$ environment around the ego vehicle, which are described below:
  1. Performing only the necessary coordinate transformations
  2. Performing a two-cycle object tracking to classify objects into _staning_, _moving_, or _oncoming_ objects, based on their kinematic properties.
 
-As an input, the user receives up to two imput argumets, `sensor` and `ego`, which contain the following dataset:
+As an input, the user receives up to two input arguments, `sensor` and `ego`, which contain the following dataset:
 
 `sensor`:
  - `sensor.n`: number of sensors
@@ -566,7 +565,7 @@ The key part of the first user solution is presented below.
                                sind(t) cosd(t)]';
 for ii = 1 : sensor.n                           % iterate over sensor array
     if sensor.active(ii)                        % sensor is active by the user
-        theta = sensor.theta(ii);               % sensr mounting angle
+        theta = sensor.theta(ii);               % sensor mounting angle
         obj_x = sensor.data{ii}(:,1);           % object position x
         obj_y = sensor.data{ii}(:,2);           % object position y
         obj = cat(1,obj,rd(obj_x,obj_y,theta)); % object rotated
@@ -579,7 +578,7 @@ end
 The second user-solution provided by this base implementation of ADAS SimWorld builds on the first solution by using the provided `get_obj_prev()` function to obtain the object positions in the previous cycle.
 This allows calculating the object displacement since the previous cycle and the object absolute velocity, which allows a basic classification into _standing_, _moving_, or oncoming_ objects types.
 
-Calculating the kinematic properties of the tracked objects is the challenging part of this solution, since we must validate the current cycle detections against those of the previous cycle, and determin which detections coccrespond to which.
+Calculating the kinematic properties of the tracked objects is the challenging part of this solution, since we must validate the current cycle detections against those of the previous cycle, and determine which detections correspond to which.
 This gets further complicated by the fact that some objects will have left the sensor field of view from one cycle to the next, while other will have entered it.
 
 This filtering step is done by calculating the displacement between each pair of current and previous detections and finding the closest previous-to-current object detection.
@@ -645,22 +644,22 @@ end
 ### Software architecture
 
 ADAS SimWorld software architecture can be split into two main parts: the initialization and the simulation run.
-The initialization architecture is done in a straightfoward maner, as depiected in the diagram below.
+The initialization architecture is done in a straightforward manner, as depicted in the diagram below.
 
 <p align="center">
-<img width=800 src="https://user-images.githubusercontent.com/111191306/200172099-314de697-27ff-46a6-ac58-979101d66c38.png"/>
+<img width=800 src="doc/diagrams/ADAS_SimWorld_architecture_initialization.png"/>
 </p>
 
 Once all function handles are initialized, all interactions with the simulation tool are done via the GUI.
 The last initialization step is to reset the simulation.
 The simulation reset is done by calling the callback function of the GUI Reset button.
-This funtion initializes all simulation objects and their associated graphics, i.e., the handles to the graphics that represent the simulation data in the visualization axes.
+This function initializes all simulation objects and their associated graphics, i.e., the handles to the graphics that represent the simulation data in the visualization axes.
 
-When the `Start` or `Step` buttons are called from the GUI, the simulation proper isexecuted as described in the diagram below.
+When the `Start` or `Step` buttons are called from the GUI, the simulation proper is executed as described in the diagram below.
 The process is repeated as long as the play button is in a pressed state.
 
 <p align="center">
-<img width=700 src="https://user-images.githubusercontent.com/111191306/200180061-fe5cfa03-eecb-491e-9ea4-339a6aca3e59.png"/>
+<img width=700 src="doc/diagrams/ADAS_SimWorld_architecture_SimulationRun.png"/>
 </p>
 
 ### SimWorld inhabitants
@@ -682,7 +681,7 @@ Kinematic properties:
  - `theta`:(rad) ego orientation
  
  Note: `ego.theta` is the only angle defined in radians.
- This is done by convention to clearly destinguish between the object rotation (translation about ego vehicle) and orientation (object's orientation) angles when implementing the 3rd person visualization.
+ This is done by convention to clearly distinguish between the object rotation (translation about ego vehicle) and orientation (object's orientation) angles when implementing the 3rd person visualization.
 
 Visualization properties:
  - `cube`: cube object for graphical representation
@@ -707,7 +706,7 @@ Sensor properties:
 Kinematic properties:
  - `n`: number of moving objects
  - `v`: (m/s) moving object speed
- - `t0`: (s) random starting position (modelled by a time $t_0$ along $x(t)$ )
+ - `t0`: (s) random starting position (modeled by a time $t_0$ along $x(t)$ )
  - `off`: (m) y offset relative to ego (lane position)
  - `lane`: lane object
  - `x_t(t,x_1)`: (m) moving object x position function
@@ -717,7 +716,7 @@ Kinematic properties:
  
  Visualization properties:
  - `cube`: list of cube objects
- - `cube(:).dimensions`: (m) mocing object dimensions
+ - `cube(:).dimensions`: (m) moving object dimensions
  - `cube(:).theta`: (deg) cube orientation
  - `cube(:).x`: (m) cube center x position
  - `cube(:).y`: (m) cube center y position
@@ -740,7 +739,5 @@ Visualization properties
  - `shape(:).theta0`: shape initial orientation
  - `shape(:).theta`: ego orientation (required for 3rd person perspective rotation)
  - `shape(:).faces`: object-specific patch faces
- - `shape(:).vertices`: shape vertixes
-
-## Widgets
+ - `shape(:).vertices`: shape vertices
 
