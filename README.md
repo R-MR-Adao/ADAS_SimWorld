@@ -25,6 +25,8 @@ It was designed for mainly for didatic purposes,and the prototyping of simple de
    - [3D Terrain model](@3dterrainmodel)
    - [Sensor detections](@sensordetections)
  - [User solutions](@usersolutions)
+  - [Solution 1: No tracking](@Solution1:Notracking)
+  - [Solution 2: 2-cycle object tracking and classification](@Solution2:2-cycleobjecttrackingandclassification)
  - [A peek under the hood](@apeekunderthehood)
    - [Software architecture](@softwarearchitecture)
     - [SimWorld inhabitants](@simworldinhabitants)
@@ -293,7 +295,7 @@ The ego vehicle is represented by a red circle.
 </p>
 
 As the video shows, objects move continuously along the priod road (an object moving out of one end of the map comes back from the opposite one).
-More information about this periodicity implementation is provided in the [A peek under the hood](@apeekunderthehood) section.
+This is done by keeping track of each object's total travelled distance along the $x$ axis and representing only the remainder of the division by the total length (in $x$) of the road using the [modulo function](https://en.wikipedia.org/wiki/Modulo_operation#:~:text=In%20computing%2C%20the%20modulo%20operation,the%20modulus%20of%20the%20operation).).
 
 Each moving object's rotation about their own rotation center is then obtained from the orientation $\theta_l$ of the object's lane at their current position $P_\mathrm{mov}(x,t)$, relative to the $X$ axis
 
@@ -380,7 +382,7 @@ The application of $\mathcal{R}(\theta,P)$ is illustrated the video below.
 The 3rd persion perspective around the ego vehicke (bottom-right axes of the GUI) is obtained by rotating each object in the simulation space (including the road) around the ego vehicle.
 Hence, the ego vehicle itself is represented (in red) as a stationary object at position $(0,0)$, while every other object is rotated about the $Z$ axis by the angle $\theta_\mathrm{ego}(t)$, the orientation of the ego vehicle at time $t$, relative to the $X$ axis.
 $\theta_\mathrm{ego}(t)$ can be calculated analogously to $\theta_l(t)$.
-Considering that the ego vehicle moves directly along the road function ($w_\mathrm{ego} = 0$), then we can express it as
+Considering that the ego vehicle moves directly along the road function ( $w_\mathrm{ego} = 0$ ), then we can express it as
 
 $$
 \theta_\mathrm{ego}(t) = -\arctan\left(
@@ -425,9 +427,15 @@ The figure below illustrates both the orientation and position rotation around t
 <img src="doc\pictures\ADAS_SimWorld_model_3rdPersonPerspective.png"/>
 </p>
 
+Including the road periodicity in this representation is obtained by always rendering half a road-length ahead and behind of the ego vehicle, while each object's position is represented always within the load length range (rember that in this perspective the ego is represented as stationary at $(0,0,0)$ ).
+
+To optimize the rendering speed, objects outside the current zoom field of view are not represented.
+Also, the 3D terrain surfaces is only represented using the `surf` function if the title angle is above $20^o$ and the terrain depth is larger than $5$ m.
+Otherwise, the road is represented using a more efficient (and less pixelized) 2D patch.
+
 ### 3D Terrain model
 
-SimWorld's terrain is modelled by defining its elevation ($z$ component) using a 2D [Gaussian function](https://en.wikipedia.org/wiki/Gaussian_function), which is typically expressed as
+SimWorld's terrain is modelled by defining its elevation ( $z$ component) using a 2D [Gaussian function](https://en.wikipedia.org/wiki/Gaussian_function), which is typically expressed as
 
 $$
 G_\mathrm{2D} = a\exp\left(-\left(\frac{
@@ -453,7 +461,7 @@ The figure below illustrates the difference between the typical single-peaked 2D
 <img width=800 src="doc\pictures\ADAS_SimWorld_model_3DTerrain.png"/>
 </p>
 
-Yet, since the road is by convention of the current implementation restricted to the $XY$ plane ($f_\mathrm{road}^{(z)}(s) = 0$), the terrain topography is effectively obtained by
+Yet, since the road is by convention of the current implementation restricted to the $XY$ plane ( $f_\mathrm{road}^{(z)}(s) = 0$ ), the terrain topography is effectively obtained by
 
 $$
 T_\mathrm{road} = a\left(\exp\left(-\left(\frac{\mathcal{Y} - f_\mathrm{road}^{(y)}(\mathcal{X}) }{c} \right)^2\right) - 1\right)
@@ -518,7 +526,7 @@ and only the azimuth range is considered, as illustrated in the figure blow.
 The main goal of ADAS SimWorld is to offer a simulation platform for detection processing algorithm prototyping.
 This implementation is mainly focused in the synthetic generation of data that can be used to test new algorithms, or for didatic purposes, so that new-lerners can get acquianted with tracking algorithms.
 
-Hence, this base implementation offers two simple codes for processing the sensor-wise object detections and transform them from the sensor-specific coordinate systens to the combined 360$^o$ environment around the ego vehicle, which are described below:
+Hence, this base implementation offers two simple codes for processing the sensor-wise object detections and transform them from the sensor-specific coordinate systens to the combined 360 $^o$ environment around the ego vehicle, which are described below:
  1. Performing only the necessary coordinate transformations
  2. Performing a two-cycle object tracking to classify objects into _staning_, _moving_, or _oncoming_ objects, based on their kinematic properties.
 
@@ -636,6 +644,25 @@ end
 
 ### Software architecture
 
+ADAS SimWorld software architecture can be split into two main parts: the initialization and the simulation run.
+The initialization architecture is done in a straightfoward maner, as depiected in the diagram below.
+
+<p align="center">
+<img width=800 src="https://user-images.githubusercontent.com/111191306/200172099-314de697-27ff-46a6-ac58-979101d66c38.png"/>
+</p>
+
+Once all function handles are initialized, all interactions with the simulation tool are done via the GUI.
+The last initialization step is to reset the simulation.
+The simulation reset is done by calling the callback function of the GUI Reset button.
+This funtion initializes all simulation objects and their associated graphics, i.e., the handles to the graphics that represent the simulation data in the visualization axes.
+
+When the `Start` or `Step` buttons are called from the GUI, the simulation proper isexecuted as described in the diagram below.
+The process is repeated as long as the play button is in a pressed state.
+
+<p align="center">
+<img width=700 src="https://user-images.githubusercontent.com/111191306/200180061-fe5cfa03-eecb-491e-9ea4-339a6aca3e59.png"/>
+</p>
+
 ### SimWorld inhabitants
 
 The three types of SimWorld objects can be distinguished by their shape and color, as shown in the figure below.
@@ -680,7 +707,7 @@ Sensor properties:
 Kinematic properties:
  - `n`: number of moving objects
  - `v`: (m/s) moving object speed
- - `t0`: (s) random starting position (modelled by a time $t_0$ along $x(t)$)
+ - `t0`: (s) random starting position (modelled by a time $t_0$ along $x(t)$ )
  - `off`: (m) y offset relative to ego (lane position)
  - `lane`: lane object
  - `x_t(t,x_1)`: (m) moving object x position function
