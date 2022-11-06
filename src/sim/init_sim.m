@@ -73,9 +73,9 @@ function sim_world_data = init_sim(sim_world_data)
         obj.off = off;                   % fixed offset
         obj.ux =  @(x) -diff(road.y(x)); % x derivative
         obj.uy =  @(x) diff(x);          % y derivative
-        obj.unx = @(x)...            % perpendicular vector x
+        obj.unx = @(x)...                % perpendicular vector x
             (obj.ux(x))./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
-        obj.uny = @(x)...            % perpendicular vector y
+        obj.uny = @(x)...                % perpendicular vector y
             (obj.uy(x))./(sqrt(obj.ux(x).^2 + obj.uy(x).^2));
         obj.x =   @(x)...                % shifted vector x
             x + [obj.unx(x(1:2)).*obj.off obj.unx(x)*obj.off];
@@ -150,9 +150,9 @@ function sim_world_data = init_sim(sim_world_data)
                 road_area.Z_ = @(X,Y)...            % 2D Gaussian
                     road.terrain.a*exp(-((Y-road.y(X))/road.terrain.c).^2);
                 
-                % subtract amplitude and apply 3.75 m correction
+                % subtract amplitude and apply 1.9 m correction (ego width)
                 road_area.Z = @(X,x0,Y,y0)...
-                    road_area.Z_(X+x0,Y+y0-3.75) - road.terrain.a;
+                    road_area.Z_(X+x0,Y+y0-1.9) - road.terrain.a;
                 
         end
         road_area.type = type;
@@ -161,23 +161,23 @@ function sim_world_data = init_sim(sim_world_data)
     function obj = init_ego(x_t, road)
         % ADAS SimWorld: Initialize ego vehicle
         
-        obj = [];                % ego properties
+        obj = [];               % ego properties
         obj.v = 8;              % (m/s) ego speed
         obj.x = @(t,x_1) x_t(obj.v,t,x_1); % (m) ego x position;
         obj.y = @(x) road.y(x); % (m) ego y position
-        obj.x_1 = 0;            % (m) ego's last x
-        obj.theta = 0;          % ego orientation
+        obj.x_1 = 0;            % (m) ego x position in previous cycle
+        obj.theta = 0;          % (rad) ego orientation
         % ego cube (visualization)
-        obj.cube.dimensions = [4 1.9 1.6];
-        obj.cube.center = [0 0 0];
-        obj.cube.theta = 0;
-        obj.cube = init_cube(obj.cube);
+        obj.cube.dimensions = [4 1.9 1.6]; % (m) cube dimensions
+        obj.cube.center = [0 0 0];         % (m) cube center
+        obj.cube.theta = 0;                % (deg) cube orientation
+        obj.cube = init_cube(obj.cube);    % cube object
         % set sensor field od view properties
         obj.sensor.n = 4;              % number of sensors
-        obj.sensor.fov.range = 80;     % sensor range
-        obj.sensor.fov.theta = 150;    % sensor angular range
+        obj.sensor.fov.range = 80;     % (m) sensor range
+        obj.sensor.fov.theta = 150;    % (deg) sensor angular range
         % initialize sensors
-        obj.sensor.theta(1:obj.sensor.n) =... % sensor orientation
+        obj.sensor.theta(1:obj.sensor.n) =... % (deg) sensor orientation
             45 + 360/obj.sensor.n*(0:(obj.sensor.n-1));
         % normalize to 360 deg
         obj.sensor.theta(obj.sensor.theta > 360) =...
@@ -204,7 +204,7 @@ function sim_world_data = init_sim(sim_world_data)
     function obj = init_stand(n,road,road_area)
         % ADAS SimWorld: Initialize standing objects
         
-        obj.n = n;  % standing (static) objects properties
+        obj.n = n;  % number of standing objects
         % range for standing objects
         rg_x = [min(road.x) max(road.x)]; 
         rg_y = [-1 1]*road.T ;
@@ -220,7 +220,7 @@ function sim_world_data = init_sim(sim_world_data)
                      4 1 5 8 4;...
                      5 6 7 8 5];
         obj.faces = [faces(2:end-1,:);faces+8];
-        n_faces = size(obj.faces,1);
+        n_faces = size(obj.faces,1);             % number of faces
         % define tree colors
         obj.color = [bsxfun(@times,[0.5 0.3 0],ones(4,3));...
                      bsxfun(@times,[0 0.7 0],ones(n_faces-4,3))];
@@ -230,8 +230,8 @@ function sim_world_data = init_sim(sim_world_data)
                                         4,4,2];   % bush dims
             obj.shape(ii).theta0 = rand(1)*90;    % initial orientation
             obj.shape(ii).theta = [];             % ego orientation
-            obj.shape(ii).faces = [];
-            obj.shape(ii).vertices = [];
+            obj.shape(ii).faces = [];             % shape faces
+            obj.shape(ii).vertices = [];          % shape vertices
         end
     end
     
@@ -243,21 +243,23 @@ function sim_world_data = init_sim(sim_world_data)
         obj.v = direction*ego.v*(rand(n,1)+0.5); % (m/s) moving object speed
         obj.t0 = ...            % random starting position
             rand(n,1)*diff(road.x([1 end]))./obj.v;
-        obj.off = -2.5*(1:n)';
-        obj.lane = init_mov_lane(road, obj.off);
-        obj.x_t = @(t,x_1)...     % (m) moving object x position;
+        obj.off = -2.5*(1:n)';  % (m) y offset relative to ego (lane pos)
+        obj.lane = init_mov_lane(road, obj.off); % lane object
+        obj.x_t = @(t,x_1)...   % (m) moving object x position;
             x_t(obj.v,t+obj.t0,x_1); 
-        obj.x = @(t,dt,x_1) obj.lane.x(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); % (m) moving object y position
-        obj.y = @(t,dt,x_1) obj.lane.y(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); % (m) moving object y position
-        obj.x_1 = zeros(n,1); % (m) moving object last x
+        obj.x = @(t,dt,x_1) ... % (m) in-lane moving object x position
+            obj.lane.x(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); 
+        obj.y = @(t,dt,x_1) ... % (m) in-moving object y position
+            obj.lane.y(obj.x_t(t,x_1),obj.x_t(t+dt,x_1)); 
+        obj.x_1 = zeros(n,1);   % (m) moving object x position last cycle
         % object cube (visualization)
         for ii = 1 : n
-            obj.cube(ii).dimensions = [4 1.9 1.6];
-            obj.cube(ii).theta = [];
-            obj.cube(ii).x = [];
-            obj.cube(ii).y = [];
-            obj.cube(ii).z = [];
-            obj.cube(ii).idx = [];
+            obj.cube(ii).dimensions = [4 1.9 1.6]; % (m) cube dimensions
+            obj.cube(ii).theta = []; % (deg) cube orientation
+            obj.cube(ii).x = [];     % (m) cube center x position
+            obj.cube(ii).y = [];     % (m) cube center x position
+            obj.cube(ii).z = [];     % (m) cube center z position
+            obj.cube(ii).idx = [];   % cube vertex drawing indices
         end
     end
 
