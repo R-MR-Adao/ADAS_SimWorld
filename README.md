@@ -305,6 +305,8 @@ $$
 \right)
 $$
 
+**_NOTE:_** All usages of the $\arctan$ function should be regarded as its `atand2` range-modified implementation.
+
 Details about how object rotations are obtained can be found in the [Coordinate rotations](@coordinaterotations) section.
 
 ### Coordinate rotations
@@ -356,7 +358,7 @@ and allow all rotated objects to retain their $z$ components, i.e. for a matrix 
 $$
 P_r^{(\theta)} =
 \begin{bmatrix}
-R(\theta)P \\
+R(\theta)P_{x:y} \\
 p_z
 \end{bmatrix}
 \equiv \mathcal{R}(\theta,P)
@@ -462,13 +464,14 @@ where $a$ and $c$ are optimized to fit the road width, and the road area itself 
 ### Sensor detections
 
 The sensor readings are obtained in two simple steps:
-First, rotating the position of all SimWorld objects around the ego vehicle by the sensor mounting angle $\theta_s$;
+First, rotating the position of all SimWorld objects around the ego vehicle by the sensor mounting angle $\theta_s^{(0)}$
 
 $$
 P_{r,j}^{(\theta_s)}(t) = 
 \begin{bmatrix}
 p_{r,j}^{(\theta_s,x)}(t) \\
-p_{r,j}^{(\theta_s,y)}(t)
+p_{r,j}^{(\theta_s,y)}(t) \\
+p_{r,j}^{(\theta_s,z)}(t)
 \end{bmatrix} =
 \mathcal{R}\left(\theta_s,P_{r,j}^{(\theta_\mathrm{ego})}(t)\right) 
 $$
@@ -480,15 +483,30 @@ $$
 d_P^{(s)}(t) = \left\lVert P_{r,j}^{(\theta_s)}(t) \right\rVert
 $$
 
-is shorter than the sensor range $r_s$, and agular position $\theta_P^{(s)}(t)$ relative to the sensor frame
+is shorter than the sensor range $r_s$, and azimith $\theta_P^{(s)}(t)$ and polar \phi_P^{(s)}(t) angular coordinates relative to the sensor frame
 
 $$
 \theta_P^{(s)}(t) = \arctan\left( 
 p_{r,j}^{(\theta_s,y)}(t) \bigg/ p_{r,j}^{(\theta_s,x)}(t)
 \right)
 $$
+$$
+\phi_P^{(s)}(t) = \arccos\left(\frac{
+p_{r,j}^{(\theta_s,z)}(t)}
+{d_P^{(s)}(t)}
+\right)
+$$
 
-lies within the sensor angular range $[-\theta_s/2, \theta_s/2]$, as illustrated in the figure blow.
+lie within the sensor angular ranges $[-\theta_s/2, \theta_s/2]$, $[-\phi_s/2, \phi_s/2]$, respectively.
+
+In this base implementation however, for simplicity, the vertical components of the objects' positions is ignored.
+Hence, 
+
+$$
+d_P^{(s)}(t) \approx \left\lVert P_{r,j|x:y}^{(\theta_s)}(t) \right\rVert
+$$
+
+and only the azimuth range is considered, as illustrated in the figure blow.
 
 <p align="center">
 <img src="doc/pictures/ADAS_SimWorld_model_sensorDetections.png"/>
@@ -496,6 +514,123 @@ lies within the sensor angular range $[-\theta_s/2, \theta_s/2]$, as illustrated
 
 
 ## User solutions
+
+The main goal of ADAS SimWorld is to offer a simulation platform for detection processing algorithm prototyping.
+This implementation is mainly focused in the synthetic generation of data that can be used to test new algorithms, or for didatic purposes, so that new-lerners can get acquianted with tracking algorithms.
+
+Hence, this base implementation offers two simple codes for processing the sensor-wise object detections and transform them from the sensor-specific coordinate systens to the combined 360$^o$ environment around the ego vehicle, which are described below:
+ 1. Performing only the necessary coordinate transformations
+ 2. Performing a two-cycle object tracking to classify objects into _staning_, _moving_, or _oncoming_ objects, based on their kinematic properties.
+
+As an input, the user receives up to two imput argumets, `sensor` and `ego`, which contain the following dataset:
+
+`sensor`:
+ - `sensor.n`: number of sensors
+ - `sensor.fov`: (m,deg) field of view distance and angular ranges
+ - `sensor.theta`: (deg) sensor mounting angles
+ - `sensor.pos`: sensor position (`FL`,`RL`,`RR`,`FR`)
+ - `sensor.active`: boolean if sensor is active
+ - `sensor.data`: (m) object xy data measured by each sensor
+ 
+where `sensor.data` is restricted to the $XY$ plane.
+Since the user is agnostic to the transformations performed internally to obtain the sensor-specific data, let $P_{x:y}^{(s)}$ represent the sensor measurements received as input by the user at the simulation timestamp $t$
+
+$$
+P_s = P_{r,j|x:y}^{(\theta_s)}(t)
+$$
+ 
+`ego` (optional):
+ - `ego.Dtheta`: (deg) ego vehicle moving direction angle
+ - `ego.v_xy`: (m/s) ego vehicle velocity
+ - `ego.v`: ego speed
+ - `ego.dt`: simulation cycle duration
+
+### Solution 1: No tracking
+
+The first ans simpler solution can be summarized as the trivial coordinate transformation from the sensor-specific reference system to the unified ego vehicle's.
+This can be done by iterating over each sensor and using $\mathcal{R}(\theta_s^{(0)},P_s)$ to perform the rotation around the ego vehicle.
+
+The key part of the first user solution is presented below.
+
+```
+% rotation matrix (degrees)
+    rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);...
+                               sind(t) cosd(t)]';
+for ii = 1 : sensor.n                           % iterate over sensor array
+    if sensor.active(ii)                        % sensor is active by the user
+        theta = sensor.theta(ii);               % sensr mounting angle
+        obj_x = sensor.data{ii}(:,1);           % object position x
+        obj_y = sensor.data{ii}(:,2);           % object position y
+        obj = cat(1,obj,rd(obj_x,obj_y,theta)); % object rotated
+    end
+end
+```
+
+### Solution 2: 2-cycle object tracking and classification
+
+The second user-solution provided by this base implementation of ADAS SimWorld builds on the first solution by using the provided `get_obj_prev()` function to obtain the object positions in the previous cycle.
+This allows calculating the object displacement since the previous cycle and the object absolute velocity, which allows a basic classification into _standing_, _moving_, or oncoming_ objects types.
+
+Calculating the kinematic properties of the tracked objects is the challenging part of this solution, since we must validate the current cycle detections against those of the previous cycle, and determin which detections coccrespond to which.
+This gets further complicated by the fact that some objects will have left the sensor field of view from one cycle to the next, while other will have entered it.
+
+This filtering step is done by calculating the displacement between each pair of current and previous detections and finding the closest previous-to-current object detection.
+If the calculated displacement tends to zero, we can be confident that this corresponds to a standing objects.
+Otherwise, we must declare a maximum admissible inter-cycle displacement and discard detections whose displacement are above that threshold.
+The remaining detections can then be classified into _moving_ or _oncoming_ depending on the $x$ component of their velocity:
+
+ - Objects with a considerably negative and positive $x$ velocity are classified as _oncoming_ and _moving_ respectively.
+ - Objects with an $x$ velocity close to zero get no classification, meaning that they are probably crossing objects moving sideways relative to the ego vehicle.
+
+The key part of the second user solution is presented below.
+
+```
+% get identified object list from previous cycle
+obj_prev = get_obj_prev(sensor,ego);    % object list previous cycle
+
+if ~isempty(obj)
+    % compensate ego rotation in previous cycle
+    obj_prev = rd(obj_prev(:,1),obj_prev(:,2),ego.Dtheta);
+
+    % calculate displacement matrix
+    d_x = bsxfun(@minus,obj(:,1), obj_prev(:,1)');  % displacement x
+    d_y = bsxfun(@minus,obj(:,2), obj_prev(:,2)');  % displacement x
+    d_mat = sqrt(d_x.^2 + d_y.^2);                  % displacement abs
+
+    % find the closest object from the previous cycle
+    [dmin,imin] = min(abs(d_mat),[],2);                 % min d and ind
+    ind = sub2ind(size(d_x), (1:length(imin))', imin);  % matrix ind
+
+    % calculate object x y velocity
+    obj_v = bsxfun(@plus,[d_x(ind),d_y(ind)]/ego.dt,ego.v_xy);% vel xy
+
+    % identify tracked objects
+    obj_tracked = obj(dmin <= thresh_d_max,:);  % tracked objects list
+    obj_v(dmin > thresh_d_max,:) = [];          % tracked objects speed
+
+    % calculate absolute velocity
+    obj_speed = sqrt(obj_v(:,1).^2 + obj_v(:,2).^2); % obect speed
+    obj_v_sign = obj_speed .* sign(obj_v(:,1)); % x-dir signed speed
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %                     Object classification                       %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    % standing objetcs
+    stand = obj_tracked(obj_speed < thresh_v_stand_max,:);
+
+    % moving objects
+    mov = obj_tracked(obj_v_sign > thresh_v_mov_min,:);
+
+    % oncoming objects
+    onc = obj_tracked(obj_v_sign < -thresh_v_mov_min,:);
+
+    % output updated object list to base workspace
+    assignin('base','obj_prev',obj);
+end
+```
+
+**_NOTE:_**  The function `bsxfun()` is used for backwards compatibility with legacy MATLAB versions that do not allow inconsistent sized matrix operations.
 
 ## A peek under the hood
 

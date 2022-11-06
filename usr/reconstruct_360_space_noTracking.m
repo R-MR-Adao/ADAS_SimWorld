@@ -19,13 +19,13 @@ function obj = reconstruct_360_space(sensor)
     
     % rotation matrix (degrees)
     rd = @(x,y,t) [x(:),y(:)]*[cosd(t) -sind(t);...
-        sind(t)  cosd(t)]';
+                               sind(t) cosd(t)]';
     
-    for ii = 1 : sensor.n
-        if sensor.active(ii)
+    for ii = 1 : sensor.n                           % iterate over the sensor array
+        if sensor.active(ii)                        % sensor is active by the user
             theta = sensor.theta(ii);               % sensr mounting angle
-            obj_x = sensor.data{ii}(:,1);       % object position x
-            obj_y = sensor.data{ii}(:,2);       % object position y
+            obj_x = sensor.data{ii}(:,1);           % object position x
+            obj_y = sensor.data{ii}(:,2);           % object position y
             obj = cat(1,obj,rd(obj_x,obj_y,theta)); % object rotated
         end
     end
