@@ -59,11 +59,8 @@ function sim_world_data = user_code_api(sim_world_data)
         ego_f.Dtheta = ego.Dtheta/pi*180;       % angular variation
         ego_x = ego.x(t,0);                     % current x position
         ego_x_1 = ego.x(t-dt,0);                % previous x position
-        % calculate ego xy velocity
-        v_xy = rd(ego_x-ego_x_1,ego.y(ego_x)-ego.y(ego_x_1),...
-            (pi/2-ego.theta)/pi*180)/dt;
-        ego_f.v_xy = v_xy([2 1]) .* [1 -1];
-        ego_f.v = sqrt(ego_f.v_xy(1)^2 + ego_f.v_xy(2)^2); % ego speed
+        ego_f.v = ...                           % ego speed
+            sqrt((ego_x-ego_x_1)^2 + (ego.y(ego_x)-ego.y(ego_x_1))^2)/dt;    
         ego_f.dt = dt;                          % cycle duration
     end
     
@@ -97,14 +94,14 @@ function sim_world_data = user_code_api(sim_world_data)
                     % calculate standing object z in their original position
                     %   1) cancel ego rotation
                     [obj_x,obj_y] = funcs.sim.dynamic_transform_coordinates(...
-                        obj_u(:,1),obj_u(:,2),0,0,-ego.theta);
+                        obj_u(:,1),obj_u(:,2),0,0,ego.theta);
                     %   2) calculate road_area z in the object positions
                     obj_u = [obj_u road_area.Z(...
                         obj_x,ego.x_1,obj_y,ego.y_1)];
                     if ~isempty(stand_u)
                         %   1) cancel ego rotation
                         [stand_x,stand_y] = funcs.sim.dynamic_transform_coordinates(...
-                            stand_u(:,1),stand_u(:,2),0,0,-ego.theta);
+                            stand_u(:,1),stand_u(:,2),0,0,ego.theta);
                         %   2) calculate road_area z in the object positions
                         stand_u = [stand_u road_area.Z(...
                             stand_x,ego.x_1,stand_y,ego.y_1)];

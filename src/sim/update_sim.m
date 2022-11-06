@@ -135,8 +135,8 @@ function sim_world_data = update_sim(sim_world_data)
         % transform road coordinates
         [road_x,road_y,theta] = dynamic_transform_coordinates(...
             {road_x,road_y,ego.x_1,ego.y(ego.x_1)});
-        ego.Dtheta = ego.theta - theta; % angular variation
-        ego.theta = theta;              % ego orientation
+        ego.Dtheta = ego.theta + theta; % angular variation
+        ego.theta = -theta;             % ego orientation
         
         % transform lane coordinates
         [lane_x,lane_y] = dynamic_transform_coordinates(...

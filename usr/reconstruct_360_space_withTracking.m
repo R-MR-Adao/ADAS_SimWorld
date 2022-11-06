@@ -49,8 +49,8 @@ function [obj,stand,mov,onc] = reconstruct_360_space(sensor,ego)
         thresh_v_stand_max = 0.2; % m/s max standing object speed
         thresh_v_mov_min = 7;     % m/s min moving object x velocity
         
-        % compensate ego rotation in previous cycle
-        obj_prev = rd(obj_prev(:,1),obj_prev(:,2),ego.Dtheta);
+        % compensate for ego dynamics (translation & rotation)
+        obj_prev = rd(obj_prev(:,1)-ego.v*ego.dt,obj_prev(:,2),ego.Dtheta); % rotation
         
         % calculate displacement matrix
         d_x = bsxfun(@minus,obj(:,1), obj_prev(:,1)');  % displacement x
@@ -58,11 +58,11 @@ function [obj,stand,mov,onc] = reconstruct_360_space(sensor,ego)
         d_mat = sqrt(d_x.^2 + d_y.^2);                  % displacement abs
 
         % find the closest object from the previous cycle
-        [dmin,imin] = min(abs(d_mat),[],2);                 % min d and ind
-        ind = sub2ind(size(d_x), (1:length(imin))', imin);  % matrix ind
+        [dmin,imin] = min(abs(d_mat),[],2);                % min d and ind
+        ind = sub2ind(size(d_x), (1:length(imin))', imin); % matrix ind
 
         % calculate object x y velocity
-        obj_v = bsxfun(@plus,[d_x(ind),d_y(ind)]/ego.dt,ego.v_xy);% vel xy
+        obj_v = [d_x(ind),d_y(ind)]/ego.dt;             % velocity xy
 
         % identify tracked objects
         obj_tracked = obj(dmin <= thresh_d_max,:);  % tracked objects list
