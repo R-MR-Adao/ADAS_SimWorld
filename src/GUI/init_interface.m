@@ -40,6 +40,10 @@ function sim_world_data = init_interface()
         interface.colors.font             = [1 1 1]*1;
         interface.colors.code_background  = [1 1 1]*0.2;
         interface.colors.code_font        = [0.9 1 0.8];
+        
+        % Set current directory
+        p = mfilename('fullpath');
+        cd(p(1:end-length('src\GUI\init_interface')))
 
         % visu figure
         interface.figures.visu.f = figure(...
@@ -68,10 +72,6 @@ function sim_world_data = init_interface()
         uimenu(interface.figures.main.f,...
             'label','About',...
             'callback',@MenuSelected);
-
-        % Set current directory
-        p = mfilename('fullpath');
-        cd(p(1:end-length('src\GUI\init_interface')))
 
         % ************************ playback panel ************************
 
@@ -587,8 +587,9 @@ function sim_world_data = init_interface()
         % ADAS SimWorld: add logo
 
         warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
+        warning('off','MATLAB:ui:javaframe:PropertyToBeRemoved');
         jframe=get(f,'javaframe');
-        jIcon=javax.swing.ImageIcon('cfg\logo_rmra.png');
+        jIcon=javax.swing.ImageIcon('.\cfg\logo_rmra.png');
         jframe.setFigureIcon(jIcon);
     end
     
