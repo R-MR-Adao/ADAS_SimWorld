@@ -235,8 +235,8 @@ function sim_world_data = update_sim(sim_world_data)
         [ra_l,ra_r] = split_road_edges(road_edge_x,road_edge_y);
         
         % interpolate y coordinates
-        ra_l = interp1(ra_l(:,1),ra_l(:,2),p_x+ego.x_1,'pchirp','extrap')-ego_y;
-        ra_r = interp1(ra_r(:,1),ra_r(:,2),p_x+ego.x_1,'pchirp','extrap')-ego_y;
+        ra_l = interp1(ra_l(:,1),ra_l(:,2),p_x+ego.x_1,'pchip','extrap')-ego_y;
+        ra_r = interp1(ra_r(:,1),ra_r(:,2),p_x+ego.x_1,'pchip','extrap')-ego_y;
     end
 
     function road_area = find_road_area(varargin)

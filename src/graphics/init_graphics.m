@@ -41,9 +41,9 @@ function sim_world_data = init_graphics(sim_world_data)
         % extrapolate re_x and re_x to full x range
         [re_l,re_r,re_c] = funcs.sim.split_road_edges(re_x,re_y);
         xi = r_x(1:10:end)';        % lower resolution array for plotting
-        re_l = [xi interp1(re_l(:,1),re_l(:,2),xi,'pchirp','extrap')];
-        re_r = [xi interp1(re_r(:,1),re_r(:,2),xi,'pchirp','extrap')];
-        re_c = [xi interp1(re_c(:,1),re_c(:,2),xi,'pchirp','extrap')];
+        re_l = [xi interp1(re_l(:,1),re_l(:,2),xi,'pchip','extrap')];
+        re_r = [xi interp1(re_r(:,1),re_r(:,2),xi,'pchip','extrap')];
+        re_c = [xi interp1(re_c(:,1),re_c(:,2),xi,'pchip','extrap')];
         %reconstruct road edges
         re_x = [re_l(:,1);nan;re_c(:,1);nan;re_r(:,1)]';
         re_y = [re_l(:,2);nan;re_c(:,2);nan;re_r(:,2)]';
