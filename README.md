@@ -490,13 +490,14 @@ $$
 d_P^{(s)}(t) = \left\lVert P_{r,j}^{(\theta_s)}(t) \right\rVert
 $$
 
-is shorter than the sensor range $r_s$, and azimuth $\theta_P^{(s)}(t)$ and polar \phi_P^{(s)}(t) angular coordinates relative to the sensor frame
+is shorter than the sensor range $r_s$, and azimuth $\theta_P^{(s)}(t)$ and polar $\phi_P^{(s)}(t)$ angular coordinates relative to the sensor frame
 
 $$
 \theta_P^{(s)}(t) = \arctan\left( 
 p_{r,j}^{(\theta_s,y)}(t) \bigg/ p_{r,j}^{(\theta_s,x)}(t)
 \right)
 $$
+
 $$
 \phi_P^{(s)}(t) = \arccos\left(\frac{
 p_{r,j}^{(\theta_s,z)}(t)}
