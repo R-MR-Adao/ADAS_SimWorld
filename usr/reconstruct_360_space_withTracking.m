@@ -50,7 +50,7 @@ function [obj,stand,mov,onc] = reconstruct_360_space(sensor,ego)
         thresh_v_mov_min = 7;     % m/s min moving object x velocity
         
         % compensate for ego dynamics (translation & rotation)
-        obj_prev = rd(obj_prev(:,1)-ego.v*ego.dt,obj_prev(:,2),ego.Dtheta); % rotation
+        obj_prev = rd(obj_prev(:,1)-ego.v*ego.dt,obj_prev(:,2),ego.Dtheta);
         
         % calculate displacement matrix
         d_x = bsxfun(@minus,obj(:,1), obj_prev(:,1)');  % displacement x

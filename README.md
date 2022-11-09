@@ -89,6 +89,8 @@ As of version `1.0`, the user code API includes only the function `reconstruct_3
 Two solutions are provided for this code, with and without object classification algorithms. 
 The GUI is prepared to host more than one code file to implement different functionalities. The code editor allows choosing the file by a drop-down menu at the top-left of the _Main playback_ panel. 
 
+**_NOTE_**: User code files can also be edited directly in the MATLAB IDE
+
 More information on the implementations can be found in [User solutions](#user-solutions) section.
 
 <p align="center">
@@ -367,6 +369,21 @@ $$
 
 For syntax simplicity, let $\mathcal{R}(\theta,P)$ be the function that calculates $P_r^{(\theta)}$ from $P$ in the above manner.
 
+**_NOTE_**: MATLAB allows multiplying a rotation matrix against a list of coordinates in one go using the following notation:
+```
+P_r = XYZ*R';
+```
+
+where `XYZ` is an $n\times3$ array containing the $xyz$ coordinates of $n$ points, `R` is a rotation matrix, and `P_r` stores the rotated coordinate list.
+Applied to an explicit 2D example, this is equivalent to the following:
+
+```
+P_r = [x(:),y(:)]*[cos(t) -sin(t);...
+                   sin(t)  cos(t)]';
+``` 
+
+where `x` and `y` are arrays containing the $x$ and $y$ coordinates to be rotated.
+
 Objects' coordinates can be rotated using $\mathcal{R}(\theta,P)$ around the object's own center of rotation (e.g.as the object moves along the road), and/or about the ego vehicle (for 3rd person perspective).
 The former does not change the objects position, but merely rotates the coordinates of the vertices that make up its cube around the $Z$ axis.
 The latter is addressed in more detail in the [3rd person perspective](#3rd-person-perspective) section.
@@ -638,7 +655,7 @@ if ~isempty(obj)
 end
 ```
 
-**_NOTE:_**  The function `bsxfun()` is used for backwards compatibility with legacy MATLAB versions that do not allow inconsistent sized matrix operations.
+**_NOTE_**:  The function `bsxfun()` is used for backwards compatibility with legacy MATLAB versions that do not allow inconsistent sized matrix operations.
 
 ## A peek under the hood
 
@@ -681,7 +698,7 @@ Kinematic properties:
  - `x_1`: (m) ego $x$ position in previous cycle
  - `theta`:(rad) ego orientation
  
- Note: `ego.theta` is the only angle defined in radians.
+**_NOTE_**: `ego.theta` is the only angle defined in radians.
  This is done by convention to clearly distinguish between the object rotation (translation about ego vehicle) and orientation (object's orientation) angles when implementing the 3rd person visualization.
 
 Visualization properties:
